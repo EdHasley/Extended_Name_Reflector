@@ -1396,8 +1396,14 @@ sed -i \
     "$XLXCONFIG" || error_exit "Failed to apply customizations to $XLXCONFIG"
 
 # Keep public advertising independent from protocol operation.
-sed -i "s|\\$CallingHome\['Active'\][[:space:]]*=[[:space:]]*true;|\\$CallingHome['Active'] = $CALLHOME_PHP;|" "$XLXCONFIG" \
-    || error_exit "Failed to configure call-home setting"
+# The shipped dashboard loads this local override after its main config.
+cat > "$WEBDIR/config.inc.php" <<EOF
+<?php
+\$CallingHome['Active'] = $CALLHOME_PHP;
+\$PageOptions['CustomTXT'] = '$EXTENDED_NAME_ESC';
+?>
+EOF
+chmod 644 "$WEBDIR/config.inc.php"
 
 # Handle URL separately due to # character
 sed -i "s#http://your_dashboard#http://$XLXDOMAIN_ESC#g" "$XLXCONFIG" \
