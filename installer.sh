@@ -1171,12 +1171,44 @@ if [ ! -f "$MAINCONFIG" ]; then
     error_exit "Configuration file $MAINCONFIG not found"
 fi
 
+# Convert Y/N selections once, then seed XLXD compile-time switches and ports.
+yn01() { [[ "$1" == "Y" ]] && echo 1 || echo 0; }
+EN_DEXTRA=$(yn01 "$ENABLE_DEXTRA_USER")
+EN_DPLUS=$(yn01 "$ENABLE_DPLUS_USER")
+EN_DCS=$(yn01 "$ENABLE_DCS_USER")
+EN_XLX=$(yn01 "$ENABLE_XLX_USER")
+EN_DMRPLUS=$(yn01 "$ENABLE_DMRPLUS_USER")
+EN_DMRMMDVM=$(yn01 "$ENABLE_DMRMMDVM_USER")
+EN_YSF=$(yn01 "$ENABLE_YSF_USER")
+EN_G3=$(yn01 "$ENABLE_G3_USER")
+EN_IMRS=$(yn01 "$ENABLE_IMRS_USER")
+
 sed -i \
-    -e "s|\\(NB_OF_MODULES\\s*\\)[0-9]*|\\1$MODQTD|g" \
-    -e "s|\(YSF_PORT\s*\)[0-9]*|\1$YSFPORT|g" \
-    -e "s|\(YSF_DEFAULT_NODE_TX_FREQ\s*\)[0-9]*|\1$YSFFREQ|g" \
-    -e "s|\(YSF_DEFAULT_NODE_RX_FREQ\s*\)[0-9]*|\1$YSFFREQ|g" \
-    -e "s|\(YSF_AUTOLINK_ENABLE\s*\)[0-9]*|\1$AUTOLINK|g" \
+    -e "s|\\(ENABLE_DEXTRA[[:space:]]*\\)[01]|\\1$EN_DEXTRA|g" \
+    -e "s|\\(ENABLE_DPLUS[[:space:]]*\\)[01]|\\1$EN_DPLUS|g" \
+    -e "s|\\(ENABLE_DCS[[:space:]]*\\)[01]|\\1$EN_DCS|g" \
+    -e "s|\\(ENABLE_XLX[[:space:]]*\\)[01]|\\1$EN_XLX|g" \
+    -e "s|\\(ENABLE_DMRPLUS[[:space:]]*\\)[01]|\\1$EN_DMRPLUS|g" \
+    -e "s|\\(ENABLE_DMRMMDVM[[:space:]]*\\)[01]|\\1$EN_DMRMMDVM|g" \
+    -e "s|\\(ENABLE_YSF[[:space:]]*\\)[01]|\\1$EN_YSF|g" \
+    -e "s|\\(ENABLE_G3[[:space:]]*\\)[01]|\\1$EN_G3|g" \
+    -e "s|\\(ENABLE_IMRS[[:space:]]*\\)[01]|\\1$EN_IMRS|g" \
+    -e "s|\\(DEXTRA_PORT[[:space:]]*\\)[0-9]*|\\1${DEXTRA_PORT_USER:-30001}|g" \
+    -e "s|\\(DPLUS_PORT[[:space:]]*\\)[0-9]*|\\1${DPLUS_PORT_USER:-20001}|g" \
+    -e "s|\\(DCS_PORT[[:space:]]*\\)[0-9]*|\\1${DCS_PORT_USER:-30051}|g" \
+    -e "s|\\(XLX_PORT[[:space:]]*\\)[0-9]*|\\1${XLX_PORT_USER:-10002}|g" \
+    -e "s|\\(DMRPLUS_PORT[[:space:]]*\\)[0-9]*|\\1${DMRPLUS_PORT_USER:-8880}|g" \
+    -e "s|\\(DMRMMDVM_PORT[[:space:]]*\\)[0-9]*|\\1${DMRMMDVM_PORT_USER:-62030}|g" \
+    -e "s|\\(YSF_PORT[[:space:]]*\\)[0-9]*|\\1$YSFPORT|g" \
+    -e "s|\\(G3_PRESENCE_PORT[[:space:]]*\\)[0-9]*|\\1${G3_PRESENCE_PORT_USER:-12346}|g" \
+    -e "s|\\(G3_CONFIG_PORT[[:space:]]*\\)[0-9]*|\\1${G3_CONFIG_PORT_USER:-12345}|g" \
+    -e "s|\\(G3_DV_PORT[[:space:]]*\\)[0-9]*|\\1${G3_DV_PORT_USER:-40000}|g" \
+    -e "s|\\(IMRS_PORT[[:space:]]*\\)[0-9]*|\\1${IMRS_PORT_USER:-21110}|g" \
+    -e "s|\\(TRANSCODER_PORT[[:space:]]*\\)[0-9]*|\\1$TRANSCODER_PORT_USER|g" \
+    -e "s|\\(NB_OF_MODULES[[:space:]]*\\)[0-9]*|\\1$MODQTD|g" \
+    -e "s|\\(YSF_DEFAULT_NODE_TX_FREQ[[:space:]]*\\)[0-9]*|\\1$YSFFREQ|g" \
+    -e "s|\\(YSF_DEFAULT_NODE_RX_FREQ[[:space:]]*\\)[0-9]*|\\1$YSFFREQ|g" \
+    -e "s|\\(YSF_AUTOLINK_ENABLE[[:space:]]*\\)[0-9]*|\\1$AUTOLINK|g" \
     "$MAINCONFIG" || error_exit "Failed to apply customizations to $MAINCONFIG"
 
 if [ "$AUTOLINK" -eq 1 ]; then
