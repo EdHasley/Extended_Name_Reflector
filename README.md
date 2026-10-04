@@ -31,6 +31,22 @@ This repository is independent of the production XLX480 reflector and the X80 ex
 
 The installer builds from `EdHasley/xlxd`, whose current `main.h` already contains the protocol enable switches used by this installer.
 
+## Install on a fresh test VM
+
+Use a fresh Debian or Ubuntu VM for the first test. Log in to the VM, open a terminal, and run:
+
+```bash
+sudo apt update
+sudo apt install -y curl
+curl -fsSL https://raw.githubusercontent.com/EdHasley/Extended_Name_Reflector/main/installer.sh -o installer.sh
+chmod +x installer.sh
+sudo ./installer.sh
+```
+
+The installer will ask for the protocol-safe XLX ID, the Extended Name, which protocols to enable, their ports, the AMBE/transcoder port, and whether public call-home advertising should be enabled.
+
+**Test build:** do not run this installer on the existing XLX480 or X80 reflector. Use the new clean VM.
+
 ## Status
 
 **Development / test VM only.** Static validation is automated with GitHub Actions (`bash -n` and ShellCheck). A fresh VM should be used for the first runtime installation test.
