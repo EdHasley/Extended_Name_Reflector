@@ -1,0 +1,23 @@
+name: Validate installer
+
+on:
+  push:
+    paths:
+      - 'installer.sh'
+      - '.github/workflows/validate-installer.yml'
+  pull_request:
+    paths:
+      - 'installer.sh'
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bash syntax check
+        run: bash -n installer.sh
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+          check_together: 'yes'
