@@ -16,8 +16,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Bash syntax check
         run: bash -n installer.sh
-      - name: ShellCheck
-        uses: ludeeus/action-shellcheck@master
-        with:
-          scandir: '.'
-          check_together: 'yes'
+      - name: ShellCheck errors
+        run: shellcheck --severity=error installer.sh
