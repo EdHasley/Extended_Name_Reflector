@@ -1,31 +1,38 @@
 # Extended Name Reflector
 
-Experimental multi-mode reflector project based on XLXD concepts, maintained separately from XLX480 and X80.
+Experimental XLXD-based multi-mode reflector installer with a protocol-safe identity and a separate human-readable reflector name.
 
-## Project goals
+## Identity model
 
-- Keep protocol-facing IDs compatible where a protocol requires a fixed format.
-- Add a separate configurable extended reflector/display name.
-- Allow a callsign or descriptive name for the reflector UI.
-- Make call-home/advertising optional.
-- Allow supported protocols/modes to be enabled or disabled during installation.
-- Allow per-protocol network ports to be configured during installation.
-- Make the AMBE/transcoder port configurable.
-- Preserve a clean separation from the production XLX480 and experimental X80 projects.
+- **Protocol ID:** standard XLXD identity (`XLX` + three alphanumeric characters) used on protocol wire formats.
+- **Extended Name:** up to 60 characters for the dashboard and local identification. It does not alter fixed-width protocol packets.
 
-## Identity design
+This separation preserves interoperability with XLXD's 8-character callsign fields while allowing names such as `AF0WX Reflector`, `N5XXXX Club Reflector`, or `Old Geezer Reflector`.
 
-The project will distinguish between:
+## Installer features
 
-1. **Protocol ID** — the identifier transmitted where an existing protocol requires a particular size or format.
-2. **Extended Name** — a longer human-readable reflector/server name used where protocol constraints do not apply.
+The working `installer.sh` adds:
 
-This separation lets the software support names such as callsigns or descriptive reflector names without blindly changing fixed-length protocol fields.
+- Extended display/server name independent of protocol ID.
+- Public XLX call-home/advertising selectable during installation; default is **off**.
+- Enable/disable selection for DExtra, DPlus, DCS, XLX interlink, DMRPlus, DMR MMDVM, YSF, G3 Terminal and IMRS.
+- Configurable UDP ports for enabled protocols.
+- Configurable AMBE/transcoder UDP port (default 10100).
+- Existing YSF frequency and auto-link configuration.
+- Existing SSL, dashboard, module and Echo Test options.
+- Local metadata at `/etc/extended-name-reflector/reflector.conf`.
+- Dashboard local override for the extended name and call-home state.
 
-## Development rule
+## Safety
 
-Do not modify XLX480 or X80 as part of this project. Changes for Extended Name Reflector belong in this repository only.
+This repository is independent of the production XLX480 reflector and the X80 experimental reflector. It does not modify either project. The imported clean installer is preserved unchanged at `baseline/installer.sh`.
+
+## Source
+
+The installer builds from `EdHasley/xlxd`, whose current `main.h` already contains the protocol enable switches used by this installer.
 
 ## Status
 
-Repository initialized. Next step: import and audit a clean XLXD/installer baseline before changing identifier lengths.
+**Development / test VM only.** Static validation is automated with GitHub Actions (`bash -n` and ShellCheck). A fresh VM should be used for the first runtime installation test.
+
+See `docs/IDENTITY_AUDIT.md` for the protocol-length audit and design rationale.
