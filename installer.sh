@@ -942,44 +942,50 @@ ask_port() {
 
 question_protocols() {
     echo ""; echo "$SEPQUE"; echo ""
-    print_wrapped "Protocol selection. Each protocol can be enabled or disabled."
-    ask_yes_no "Enable DExtra?" Y ENABLE_DEXTRA_USER
-    ask_yes_no "Enable DPlus?" Y ENABLE_DPLUS_USER
-    ask_yes_no "Enable DCS?" Y ENABLE_DCS_USER
-    ask_yes_no "Enable XLX interlink?" Y ENABLE_XLX_USER
-    ask_yes_no "Enable DMRPlus?" Y ENABLE_DMRPLUS_USER
-    ask_yes_no "Enable DMR MMDVM?" Y ENABLE_DMRMMDVM_USER
-    ask_yes_no "Enable YSF?" Y ENABLE_YSF_USER
-    ask_yes_no "Enable G3 Terminal?" Y ENABLE_G3_USER
-    ask_yes_no "Enable IMRS?" Y ENABLE_IMRS_USER
+    print_wrapped "17. Protocol selection. Each protocol can be enabled or disabled."
+    ask_yes_no "17A. Enable DExtra?" Y ENABLE_DEXTRA_USER
+    ask_yes_no "17B. Enable DPlus?" Y ENABLE_DPLUS_USER
+    ask_yes_no "17C. Enable DCS?" Y ENABLE_DCS_USER
+    ask_yes_no "17D. Enable XLX interlink?" Y ENABLE_XLX_USER
+    ask_yes_no "17E. Enable DMRPlus?" Y ENABLE_DMRPLUS_USER
+    ask_yes_no "17F. Enable DMR MMDVM?" Y ENABLE_DMRMMDVM_USER
+    ask_yes_no "17G. Enable Yaesu/System Fusion protocols?" Y ENABLE_YAESU_USER
+    if [[ "$ENABLE_YAESU_USER" == "Y" ]]; then
+        ask_yes_no "17G-1. Enable YSF?" Y ENABLE_YSF_USER
+        ask_yes_no "17G-2. Enable IMRS?" Y ENABLE_IMRS_USER
+    else
+        ENABLE_YSF_USER=N
+        ENABLE_IMRS_USER=N
+    fi
+    ask_yes_no "17H. Enable G3 Terminal?" Y ENABLE_G3_USER
 }
 
 question_ports() {
     echo ""; echo "$SEPQUE"; echo ""
-    print_wrapped "Protocol ports. Disabled protocols keep their defaults but do not open sockets."
-    [[ "$ENABLE_DEXTRA_USER" == Y ]] && ask_port "DExtra" 30001 DEXTRA_PORT_USER
-    [[ "$ENABLE_DPLUS_USER" == Y ]] && ask_port "DPlus" 20001 DPLUS_PORT_USER
-    [[ "$ENABLE_DCS_USER" == Y ]] && ask_port "DCS" 30051 DCS_PORT_USER
-    [[ "$ENABLE_XLX_USER" == Y ]] && ask_port "XLX interlink" 10002 XLX_PORT_USER
-    [[ "$ENABLE_DMRPLUS_USER" == Y ]] && ask_port "DMRPlus" 8880 DMRPLUS_PORT_USER
-    [[ "$ENABLE_DMRMMDVM_USER" == Y ]] && ask_port "DMR MMDVM" 62030 DMRMMDVM_PORT_USER
+    print_wrapped "18. Protocol ports. Disabled protocols keep their defaults but do not open sockets."
+    if [[ "$ENABLE_DEXTRA_USER" == Y ]]; then ask_port "18A. DExtra" 30001 DEXTRA_PORT_USER; fi
+    if [[ "$ENABLE_DPLUS_USER" == Y ]]; then ask_port "18B. DPlus" 20001 DPLUS_PORT_USER; fi
+    if [[ "$ENABLE_DCS_USER" == Y ]]; then ask_port "18C. DCS" 30051 DCS_PORT_USER; fi
+    if [[ "$ENABLE_XLX_USER" == Y ]]; then ask_port "18D. XLX interlink" 10002 XLX_PORT_USER; fi
+    if [[ "$ENABLE_DMRPLUS_USER" == Y ]]; then ask_port "18E. DMRPlus" 8880 DMRPLUS_PORT_USER; fi
+    if [[ "$ENABLE_DMRMMDVM_USER" == Y ]]; then ask_port "18F. DMR MMDVM" 62030 DMRMMDVM_PORT_USER; fi
     if [[ "$ENABLE_YSF_USER" == Y ]]; then
         YSFPORT=${YSFPORT:-42000}
     fi
+    if [[ "$ENABLE_IMRS_USER" == Y ]]; then ask_port "18G. IMRS" 21110 IMRS_PORT_USER; fi
     if [[ "$ENABLE_G3_USER" == Y ]]; then
-        ask_port "G3 presence" 12346 G3_PRESENCE_PORT_USER
-        ask_port "G3 config" 12345 G3_CONFIG_PORT_USER
-        ask_port "G3 DV" 40000 G3_DV_PORT_USER
+        ask_port "18H-1. G3 presence" 12346 G3_PRESENCE_PORT_USER
+        ask_port "18H-2. G3 config" 12345 G3_CONFIG_PORT_USER
+        ask_port "18H-3. G3 DV" 40000 G3_DV_PORT_USER
     fi
-    [[ "$ENABLE_IMRS_USER" == Y ]] && ask_port "IMRS" 21110 IMRS_PORT_USER
 }
 
 question_transcoder() {
     echo ""; echo "$SEPQUE"; echo ""
-    print_wrapped "AMBE transcoder. Enable this only when AMBE hardware/transcoding will be used."
-    ask_yes_no "Enable AMBE transcoder?" N ENABLE_TRANSCODER
+    print_wrapped "19. AMBE transcoder. Enable this only when AMBE hardware/transcoding will be used."
+    ask_yes_no "19A. Enable AMBE transcoder?" N ENABLE_TRANSCODER
     if [[ "$ENABLE_TRANSCODER" == "Y" ]]; then
-        ask_port "AMBE/transcoder" 10100 TRANSCODER_PORT_USER
+        ask_port "19B. AMBE/transcoder" 10100 TRANSCODER_PORT_USER
     else
         TRANSCODER_PORT_USER=10100
     fi
@@ -987,8 +993,8 @@ question_transcoder() {
 
 question_callhome() {
     echo ""; echo "$SEPQUE"; echo ""
-    print_wrapped "Advertise this reflector to the public XLX call-home list?"
-    ask_yes_no "Enable call-home/advertising?" N CALLHOME_USER
+    print_wrapped "20. Advertise this reflector to the public XLX call-home list?"
+    ask_yes_no "20A. Enable call-home/advertising?" N CALLHOME_USER
 }
 
 collect_all_questions() {
