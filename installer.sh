@@ -133,6 +133,7 @@ SSL_OK=0
 DEPAPP=(
 python3-certbot-apache
 build-essential
+wget
 php
 php-mbstring
 php-sqlite3
@@ -255,13 +256,23 @@ read_or_abort() {
 #  the uninstaller and any other files stored under templates/ in this repo.
 BOOTSTRAP_REPO="https://raw.githubusercontent.com/EdHasley/Extended_Name_Reflector/main"
 mkdir -p "$XLXINS/templates"
-if [ ! -f "$XLXINS/templates/uninstaller.sh" ]; then
-    print_blue "$ICON_INFO Downloading required support files..."
-    if ! curl -fsSL "$BOOTSTRAP_REPO/templates/uninstaller.sh" -o "$XLXINS/templates/uninstaller.sh"; then
-        error_exit "Could not download templates/uninstaller.sh from GitHub."
+REQUIRED_TEMPLATES=(
+    uninstaller.sh
+    xlx_log.service
+    xlx_log.sh
+    xlx_logrotate.conf
+    apache.tbd.conf
+)
+print_blue "$ICON_INFO Checking required support files..."
+for template_file in "${REQUIRED_TEMPLATES[@]}"; do
+    if [ ! -f "$XLXINS/templates/$template_file" ]; then
+        print_blue "$ICON_INFO Downloading templates/$template_file..."
+        if ! curl -fsSL "$BOOTSTRAP_REPO/templates/$template_file" -o "$XLXINS/templates/$template_file"; then
+            error_exit "Could not download templates/$template_file from GitHub."
+        fi
     fi
-    chmod +x "$XLXINS/templates/uninstaller.sh"
-fi
+done
+chmod +x "$XLXINS/templates/uninstaller.sh" "$XLXINS/templates/xlx_log.sh"
 
 #  18. Check for existing installs
 if [ -e "$XLXDIR/xlxd" ]; then
