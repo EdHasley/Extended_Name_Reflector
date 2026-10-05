@@ -994,15 +994,15 @@ collect_all_questions() {
     question_10
     question_11
     question_12
-    question_13
-    question_14
-    question_15
-
-    # It only calls q16 if Auto-link is enabled.
-    if [[ "$AUTOLINK" -eq 1 ]]; then
-        question_16
-    fi
     question_protocols
+    if [[ "$ENABLE_YSF_USER" == "Y" ]]; then
+        question_13
+        question_14
+        question_15
+        if [[ "$AUTOLINK" -eq 1 ]]; then question_16; fi
+    else
+        YSFPORT=42000; YSFFREQ=433125000; AUTOLINK_USER=N; AUTOLINK=0; MODAUTO=""
+    fi
     question_ports
     question_callhome
 }
@@ -1028,9 +1028,9 @@ review_settings() {
     print_wrapped "10. SSL certification:   $INSTALL_SSL"
     print_wrapped "11. Echo Test:           $INSTALL_ECHO"
     print_wrapped "12. Modules:             $MODQTD"
-    print_wrapped "13. YSF UDP Port:        $YSFPORT"
-    print_wrapped "14. YSF frequency:       $YSFFREQ"
-    print_wrapped "15. YSF Auto-link:       $AUTOLINK_USER"
+    [[ "$ENABLE_YSF_USER" == "Y" ]] && print_wrapped "    YSF UDP Port:        $YSFPORT"
+    [[ "$ENABLE_YSF_USER" == "Y" ]] && print_wrapped "    YSF frequency:       $YSFFREQ"
+    [[ "$ENABLE_YSF_USER" == "Y" ]] && print_wrapped "    YSF Auto-link:       $AUTOLINK_USER"
 
     if [[ "$AUTOLINK" -eq 1 ]]; then
         print_wrapped "16. YSF module:          $MODAUTO"
@@ -1339,7 +1339,7 @@ MODLIST_ESC=$(escape_sed "$MODLIST")
 
 sed -i "s|#address|address $PUBLIP_ESC|g" "$TERMXLX" || error_exit "Failed to apply address to $TERMXLX"
 sed -i "s|#modules|modules $MODLIST_ESC|g" "$TERMXLX" || error_exit "Failed to apply modules to $TERMXLX"
-cp "$USRSRC/xlxd/scripts/xlxd.service" /etc/systemd/system/ || error_exit "Failed to copy xlxd.service"
+cp "$XLXINS/templates/xlxd.service" /etc/systemd/system/xlxd.service || error_exit "Failed to copy bundled xlxd.service"
 chmod 644 /etc/systemd/system/xlxd.service
 
 XRFNUM_ESC=$(escape_sed "$XRFNUM")
