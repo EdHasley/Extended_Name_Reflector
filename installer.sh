@@ -262,6 +262,7 @@ REQUIRED_TEMPLATES=(
     xlx_log.sh
     xlx_logrotate.conf
     apache.tbd.conf
+    xlxd.service
 )
 print_blue "$ICON_INFO Checking required support files..."
 for template_file in "${REQUIRED_TEMPLATES[@]}"; do
