@@ -971,7 +971,17 @@ question_ports() {
         ask_port "G3 DV" 40000 G3_DV_PORT_USER
     fi
     [[ "$ENABLE_IMRS_USER" == Y ]] && ask_port "IMRS" 21110 IMRS_PORT_USER
-    ask_port "AMBE/transcoder" 10100 TRANSCODER_PORT_USER
+}
+
+question_transcoder() {
+    echo ""; echo "$SEPQUE"; echo ""
+    print_wrapped "AMBE transcoder. Enable this only when AMBE hardware/transcoding will be used."
+    ask_yes_no "Enable AMBE transcoder?" N ENABLE_TRANSCODER
+    if [[ "$ENABLE_TRANSCODER" == "Y" ]]; then
+        ask_port "AMBE/transcoder" 10100 TRANSCODER_PORT_USER
+    else
+        TRANSCODER_PORT_USER=10100
+    fi
 }
 
 question_callhome() {
@@ -1004,6 +1014,7 @@ collect_all_questions() {
         YSFPORT=42000; YSFFREQ=433125000; AUTOLINK_USER=N; AUTOLINK=0; MODAUTO=""
     fi
     question_ports
+    question_transcoder
     question_callhome
 }
 
@@ -1036,7 +1047,8 @@ review_settings() {
         print_wrapped "16. YSF module:          $MODAUTO"
     fi
     print_wrapped "    Protocols: DExtra=$ENABLE_DEXTRA_USER DPlus=$ENABLE_DPLUS_USER DCS=$ENABLE_DCS_USER XLX=$ENABLE_XLX_USER DMRPlus=$ENABLE_DMRPLUS_USER DMR=$ENABLE_DMRMMDVM_USER YSF=$ENABLE_YSF_USER G3=$ENABLE_G3_USER IMRS=$ENABLE_IMRS_USER"
-    print_wrapped "    AMBE/transcoder port: $TRANSCODER_PORT_USER"
+    print_wrapped "    AMBE/transcoder:      $ENABLE_TRANSCODER"
+    [[ "$ENABLE_TRANSCODER" == "Y" ]] && print_wrapped "    AMBE/transcoder port: $TRANSCODER_PORT_USER"
     print_wrapped "    Public call-home:     $CALLHOME_USER"
 
     echo ""
@@ -1264,6 +1276,59 @@ echo ""
 echo ""
 make || error_exit "Compilation failed. Check build dependencies and logs."
 make install || error_exit "Installation of compiled binaries failed"
+
+# Build/install AMBED only when transcoding is enabled.
+if [[ "$ENABLE_TRANSCODER" == "Y" ]]; then
+    line_type1
+    echo ""
+    center_wrap_color $BLUE_BRIGHT "$ICON_INFO INSTALLING AMBE TRANSCODER..."
+    center_wrap_color $BLUE "============================"
+    echo ""
+    AMBED_SRC="$USRSRC/xlxd/ambed"
+    AMBED_MAIN="$AMBED_SRC/main.h"
+    [ -f "$AMBED_MAIN" ] || error_exit "AMBED configuration file not found: $AMBED_MAIN"
+    sed -i -E "s|^#define[[:space:]]+TRANSCODER_PORT[[:space:]]+[0-9]+|#define TRANSCODER_PORT                 $TRANSCODER_PORT_USER|" "$AMBED_MAIN" || error_exit "Failed to set AMBED UDP port"
+    if [ ! -e /usr/local/lib/libftd2xx.so ]; then
+        ARC=$(uname -m)
+        case "$ARC" in
+            x86_64) FTDI_URL="https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-x86_64-1.4.34.tgz"; FTDI_TGZ="libftd2xx-linux-x86_64-1.4.34.tgz" ;;
+            i386|i686) FTDI_URL="https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-x86_32-1.4.34.tgz"; FTDI_TGZ="libftd2xx-linux-x86_32-1.4.34.tgz" ;;
+            armv7l) FTDI_URL="https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-arm-v7-hf-1.4.34.tgz"; FTDI_TGZ="libftd2xx-linux-arm-v7-hf-1.4.34.tgz" ;;
+            *) error_exit "Unsupported CPU architecture for automatic FTDI D2XX install: $ARC" ;;
+        esac
+        FTDI_WORK="/tmp/ftdi-d2xx-$"; mkdir -p "$FTDI_WORK"; cd "$FTDI_WORK"
+        wget -q "$FTDI_URL" -O "$FTDI_TGZ" || error_exit "Failed to download FTDI D2XX driver"
+        tar xfz "$FTDI_TGZ" || error_exit "Failed to extract FTDI D2XX driver"
+        FTDI_LIB=$(find . -type f -name 'libftd2xx.so.1.4.34' | head -n1)
+        [ -n "$FTDI_LIB" ] || error_exit "FTDI D2XX library not found after extraction"
+        cp "$FTDI_LIB" /usr/local/lib/libftd2xx.so.1.4.34 || error_exit "Failed to install FTDI D2XX library"
+        chmod 0755 /usr/local/lib/libftd2xx.so.1.4.34; ln -sf /usr/local/lib/libftd2xx.so.1.4.34 /usr/local/lib/libftd2xx.so; ldconfig; rm -rf "$FTDI_WORK"
+    fi
+    cd "$AMBED_SRC" || error_exit "Failed to enter AMBED source directory"
+    make clean || error_exit "AMBED make clean failed"; make || error_exit "AMBED compilation failed"; make install || error_exit "AMBED installation failed"
+    [ -x /ambed/ambed ] || error_exit "AMBED binary was not installed at /ambed/ambed"
+    cat > /etc/systemd/system/ambed.service <<EOF
+[Unit]
+Description=AMBED Transcoder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=-/sbin/rmmod ftdi_sio
+ExecStartPre=-/sbin/rmmod usbserial
+ExecStart=/ambed/ambed 127.0.0.1
+User=root
+Group=root
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    chmod 644 /etc/systemd/system/ambed.service
+    msg_success "AMBED compiled and installed for UDP $TRANSCODER_PORT_USER."
+fi
 
 if [ -e "$XLXDIR/xlxd" ]; then
     echo ""
@@ -1541,6 +1606,11 @@ if ! systemctl is-active --quiet xlxd.service; then
     msg_warn "Warning: xlxd service may not have started correctly. Check with: systemctl status xlxd"
 fi
 
+# Start AMBED when enabled
+if [[ "$ENABLE_TRANSCODER" == "Y" ]]; then
+    systemctl enable --now ambed.service >> "$LOGFILE" 2>&1 || error_exit "Failed to enable/start ambed.service"
+fi
+
 #  Starting users_db timer
 echo ""
 systemctl enable --now update_XLX_db.timer >> "$LOGFILE" 2>&1 &
@@ -1601,6 +1671,15 @@ if systemctl is-active --quiet xlxd.service; then
 else
     msg_error "XLXD service is not running"
     VALIDATION_FAILED=1
+fi
+
+# Check AMBED when enabled
+if [[ "$ENABLE_TRANSCODER" == "Y" ]]; then
+    if systemctl is-active --quiet ambed.service; then
+        msg_success "AMBED service is running"
+    else
+        msg_error "AMBED service is not running"; VALIDATION_FAILED=1
+    fi
 fi
 
 # Check if xlx_log service is running
