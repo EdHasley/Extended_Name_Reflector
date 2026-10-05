@@ -1034,7 +1034,7 @@ review_settings() {
     echo ""
 
     print_wrapped "01. Protocol ID:         $XRFNUM"
-    print_wrapped "    Extended Name:       $EXTENDED_NAME"
+    print_wrapped "17. Extended Name:       $EXTENDED_NAME"
     print_wrapped "02. FQDN:                $XLXDOMAIN"
     print_wrapped "03. E-mail:              $EMAIL"
     print_wrapped "04. Callsign:            $CALLSIGN"
@@ -1053,10 +1053,10 @@ review_settings() {
     if [[ "$AUTOLINK" -eq 1 ]]; then
         print_wrapped "16. YSF module:          $MODAUTO"
     fi
-    print_wrapped "    Protocols: DExtra=$ENABLE_DEXTRA_USER DPlus=$ENABLE_DPLUS_USER DCS=$ENABLE_DCS_USER XLX=$ENABLE_XLX_USER DMRPlus=$ENABLE_DMRPLUS_USER DMR=$ENABLE_DMRMMDVM_USER YSF=$ENABLE_YSF_USER G3=$ENABLE_G3_USER IMRS=$ENABLE_IMRS_USER"
-    print_wrapped "    AMBE/transcoder:      $ENABLE_TRANSCODER"
+    print_wrapped "18. Protocols: DExtra=$ENABLE_DEXTRA_USER DPlus=$ENABLE_DPLUS_USER DCS=$ENABLE_DCS_USER XLX=$ENABLE_XLX_USER DMRPlus=$ENABLE_DMRPLUS_USER DMR=$ENABLE_DMRMMDVM_USER YSF=$ENABLE_YSF_USER G3=$ENABLE_G3_USER IMRS=$ENABLE_IMRS_USER"
+    print_wrapped "19. AMBE/transcoder:      $ENABLE_TRANSCODER"
     [[ "$ENABLE_TRANSCODER" == "Y" ]] && print_wrapped "    AMBE/transcoder port: $TRANSCODER_PORT_USER"
-    print_wrapped "    Public call-home:     $CALLHOME_USER"
+    print_wrapped "20. Public call-home:     $CALLHOME_USER"
 
     echo ""
 }
@@ -1145,8 +1145,23 @@ while true; do
                     msg_caution "Question 16 is not active."
                 fi
                 ;;
+            17) question_extended_name ;;
+            18)
+                question_protocols
+                if [[ "$ENABLE_YSF_USER" == "Y" ]]; then
+                    question_13
+                    question_14
+                    question_15
+                    if [[ "$AUTOLINK" -eq 1 ]]; then question_16; fi
+                else
+                    YSFPORT=42000; YSFFREQ=433125000; AUTOLINK_USER=N; AUTOLINK=0; MODAUTO=""
+                fi
+                question_ports
+                ;;
+            19) question_transcoder ;;
+            20) question_callhome ;;
             *)
-                msg_caution "Invalid input. Press [ENTER] to confirm, enter a question number (1-16), or [X] to cancel."
+                msg_caution "Invalid input. Press [ENTER] to confirm, enter a question number (1-20), or [X] to cancel."
                 ;;
         esac
 
