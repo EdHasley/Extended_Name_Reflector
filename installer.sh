@@ -263,6 +263,8 @@ REQUIRED_TEMPLATES=(
     xlx_logrotate.conf
     apache.tbd.conf
     xlxd.service
+    reflector_user_manager.sh
+    reflector-manager.sh
 )
 print_blue "$ICON_INFO Checking required support files..."
 for template_file in "${REQUIRED_TEMPLATES[@]}"; do
@@ -273,7 +275,7 @@ for template_file in "${REQUIRED_TEMPLATES[@]}"; do
         fi
     fi
 done
-chmod +x "$XLXINS/templates/uninstaller.sh" "$XLXINS/templates/xlx_log.sh"
+chmod +x "$XLXINS/templates/uninstaller.sh" "$XLXINS/templates/xlx_log.sh" "$XLXINS/templates/reflector_user_manager.sh" "$XLXINS/templates/reflector-manager.sh"
 
 #  18. Check for existing installs
 if [ -e "$XLXDIR/xlxd" ]; then
@@ -1279,7 +1281,32 @@ cat > /etc/extended-name-reflector/reflector.conf <<EOF
 PROTOCOL_ID="$XRFNUM"
 EXTENDED_NAME="$EXTENDED_NAME"
 CALL_HOME="$CALLHOME_USER"
+ENABLE_DEXTRA="$ENABLE_DEXTRA_USER"
+ENABLE_DPLUS="$ENABLE_DPLUS_USER"
+ENABLE_DCS="$ENABLE_DCS_USER"
+ENABLE_XLX="$ENABLE_XLX_USER"
+ENABLE_DMRPLUS="$ENABLE_DMRPLUS_USER"
+ENABLE_DMRMMDVM="$ENABLE_DMRMMDVM_USER"
+ENABLE_YSF="$ENABLE_YSF_USER"
+ENABLE_IMRS="$ENABLE_IMRS_USER"
+ENABLE_G3="$ENABLE_G3_USER"
+DEXTRA_PORT="${DEXTRA_PORT_USER:-30001}"
+DPLUS_PORT="${DPLUS_PORT_USER:-20001}"
+DCS_PORT="${DCS_PORT_USER:-30051}"
+XLX_PORT="${XLX_PORT_USER:-10002}"
+DMRPLUS_PORT="${DMRPLUS_PORT_USER:-8880}"
+DMRMMDVM_PORT="${DMRMMDVM_PORT_USER:-62030}"
+YSF_PORT="$YSFPORT"
+IMRS_PORT="${IMRS_PORT_USER:-21110}"
+G3_PRESENCE_PORT="${G3_PRESENCE_PORT_USER:-12346}"
+G3_CONFIG_PORT="${G3_CONFIG_PORT_USER:-12345}"
+G3_DV_PORT="${G3_DV_PORT_USER:-40000}"
+TRANSCODER_ENABLED="$ENABLE_TRANSCODER"
 TRANSCODER_PORT="$TRANSCODER_PORT_USER"
+YSF_FREQUENCY="$YSFFREQ"
+YSF_AUTOLINK="$AUTOLINK"
+YSF_AUTOLINK_MODULE="${MODAUTO:-}"
+MODULE_COUNT="$MODQTD"
 EOF
 chmod 644 /etc/extended-name-reflector/reflector.conf
 
@@ -1538,6 +1565,11 @@ if [ -z "$APACHE_USER" ]; then
     APACHE_USER="www-data"
 fi
 mv "$WEBDIR/users_db/" /xlxd/ || error_exit "Failed to move users_db directory"
+# Install this project's pinned PP5PK user manager plus the extended reflector manager.
+# PP5PK upstream is never modified; these are local copies maintained in this repository.
+cp "$XLXINS/templates/reflector_user_manager.sh" /xlxd/users_db/reflector_user_manager.sh || error_exit "Failed to install reflector user manager"
+cp "$XLXINS/templates/reflector-manager.sh" /usr/local/bin/reflector-manager || error_exit "Failed to install reflector-manager"
+chmod 755 /xlxd/users_db/reflector_user_manager.sh /usr/local/bin/reflector-manager
 echo "Updating permissions..."
 chown "$APACHE_USER:$APACHE_USER" /var/log/xlxd.xml || error_exit "Failed to set ownership on /var/log/xlxd.xml (user: $APACHE_USER)"
 chown -R "$APACHE_USER:$APACHE_USER" "$WEBDIR/" || error_exit "Failed to set ownership on $WEBDIR (user: $APACHE_USER)"
@@ -1726,6 +1758,14 @@ else
     msg_error "update_XLX_db.service files not found at expected location"
 fi
 
+# Check reflector management command
+if command -v reflector-manager >/dev/null 2>&1 && [ -x /usr/local/bin/reflector-manager ]; then
+    msg_success "Reflector Manager command is installed"
+else
+    msg_error "Reflector Manager command is missing"
+    VALIDATION_FAILED=1
+fi
+
 # Check if update_XLX_db.timer is running
 if systemctl is-active --quiet update_XLX_db.timer; then
     msg_success "Update users_db timer is running"
@@ -1774,10 +1814,13 @@ line_type2
 echo ""
 center_wrap_color $GREEN "Your Reflector $XRFNUM is now installed and running!"
 echo ""
-center_wrap_color $GREEN "For Public Reflectors:"
-echo ""
-center_wrap_color $GREEN "• If your XLX number is available it's expected to be listed on the public list shortly, typically within an hour. If you don't want the reflector to be published just set callinghome to [false] in the main configuration file: $XLXCONFIG."
-center_wrap_color $GREEN "• Many other settings can be changed in this file."
+if [[ "$CALLHOME_USER" == "Y" ]]; then
+    center_wrap_color $GREEN "Public call-home advertising is enabled."
+    center_wrap_color $GREEN "• If your XLX number is available, it is expected to appear on the public list after the call-home system processes it."
+else
+    center_wrap_color $GREEN "Private reflector mode: public call-home advertising is disabled."
+fi
+center_wrap_color $GREEN "• Run 'sudo reflector-manager' to manage users, protocols, ports, AMBE, call-home, extended name, and the optional dashboard header."
 center_wrap_color $GREEN "• More Information about XLX Reflectors: $INFREF"
 if [[ "$SSL_OK" -eq 1 ]]; then
     SSLTYPE="https"
