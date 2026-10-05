@@ -250,6 +250,19 @@ read_or_abort() {
     fi
 }
 
+#  Bootstrap support files needed before existing-install checks
+#  This allows a standalone installer.sh downloaded with curl to obtain
+#  the uninstaller and any other files stored under templates/ in this repo.
+BOOTSTRAP_REPO="https://raw.githubusercontent.com/EdHasley/Extended_Name_Reflector/main"
+mkdir -p "$XLXINS/templates"
+if [ ! -f "$XLXINS/templates/uninstaller.sh" ]; then
+    print_blue "$ICON_INFO Downloading required support files..."
+    if ! curl -fsSL "$BOOTSTRAP_REPO/templates/uninstaller.sh" -o "$XLXINS/templates/uninstaller.sh"; then
+        error_exit "Could not download templates/uninstaller.sh from GitHub."
+    fi
+    chmod +x "$XLXINS/templates/uninstaller.sh"
+fi
+
 #  18. Check for existing installs
 if [ -e "$XLXDIR/xlxd" ]; then
     echo ""
