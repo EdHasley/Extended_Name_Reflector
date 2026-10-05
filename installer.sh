@@ -749,7 +749,7 @@ question_12() {
     if [ "$INSTALL_ECHO" == "Y" ]; then
         MIN_MODULES=5
     fi
-    print_wrapped "12. Number of active modules for the DStar Reflector. ($MIN_MODULES - 26)"
+    print_wrapped "12. Number of active modules for the reflector. ($MIN_MODULES - 26)"
     print_gray "Suggested: 5 $ACCEPT"
     while true; do
         read_or_abort MODQTD
