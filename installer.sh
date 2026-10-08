@@ -904,6 +904,7 @@ ask_yes_no() {
         answer=$(echo "${answer:-$default}" | tr '[:lower:]' '[:upper:]')
         if [[ "$answer" == "Y" || "$answer" == "N" ]]; then
             printf -v "$varname" '%s' "$answer"
+            print_yellow "Using: $answer"
             break
         fi
         msg_caution "Please enter Y or N."
@@ -919,6 +920,7 @@ ask_port() {
         value=${value:-$default}
         if [[ "$value" =~ ^[0-9]+$ && "$value" -ge 1 && "$value" -le 65535 ]]; then
             printf -v "$varname" '%s' "$value"
+            print_yellow "Using: $value"
             break
         fi
         msg_caution "Port must be a number from 1 to 65535."
