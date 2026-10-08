@@ -1,20 +1,30 @@
-name: Validate installer
-
-on:
-  push:
-    paths:
-      - 'installer.sh'
-      - '.github/workflows/validate-installer.yml'
-  pull_request:
-    paths:
-      - 'installer.sh'
-
+name: Validate reflector package
+on: [push, pull_request]
 jobs:
-  syntax:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Bash syntax check
-        run: bash -n installer.sh
-      - name: ShellCheck errors
-        run: shellcheck --severity=error installer.sh
+      - name: Install validation tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck php-cli
+      - name: Bash syntax and ShellCheck errors
+        run: |
+          bash -n installer.sh
+          for script in templates/*.sh; do bash -n "$script"; done
+          shellcheck --severity=error installer.sh templates/reflector-manager.sh
+      - name: Dashboard PHP syntax
+        run: find dashboard -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Dashboard name and call-home overrides
+        run: |
+          python3 templates/dashboard-settings.py dashboard/config.inc.php "Ed's & Club Reflector" N
+          php -r 'require "dashboard/pgs/config.inc.php"; if ($CallingHome["Active"] !== false || $PageOptions["CustomTXT"] !== "Ed\x27s & Club Reflector") { exit(1); }'
+          python3 templates/dashboard-settings.py dashboard/config.inc.php 'XLXX80 Reflector' Y
+          php -r 'require "dashboard/pgs/config.inc.php"; if ($CallingHome["Active"] !== true) { exit(1); }'
+      - name: Build default XLXD
+        run: make -C xlxd/src -j2
+      - name: Verify DMR-only and D-Star/DMR listeners
+        run: python3 tests/protocol-smoke.py
+      - name: Compile AMBED sources
+        run: make -C xlxd/ambed -j2 $(find xlxd/ambed -maxdepth 1 -name '*.cpp' -printf '%f\n' | sed 's/\.cpp$/.o/')
+      - name: Build Echo Test
+        run: gcc -Wall -o /tmp/xlxecho XLXEcho/xlxecho.c

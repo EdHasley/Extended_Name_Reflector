@@ -103,7 +103,7 @@ while true; do
 done
 [ "$CONFIRM" == "NO" ] && { print_red "Uninstallation aborted by user."; exit 1; }
 echo ""; print_blueb "STOPPING AND DISABLING SERVICES..."; print_blue "==================================="; echo ""
-for SVC in xlxd.service xlxecho.service xlx_log.service; do
+for SVC in xlxd.service xlxecho.service xlx_log.service ambed.service; do
     if systemctl is-active --quiet "$SVC" 2>/dev/null; then systemctl stop "$SVC"; print_green "✔ Stopped $SVC."; fi
     if systemctl is-enabled --quiet "$SVC" 2>/dev/null; then systemctl disable "$SVC"; print_green "✔ Disabled $SVC."; fi
 done
@@ -113,8 +113,8 @@ for UNIT in update_XLX_db.timer update_XLX_db.service; do
     if systemctl is-enabled --quiet "$UNIT" 2>/dev/null; then systemctl disable "$UNIT"; print_green "✔ Disabled $UNIT."; fi
 done
 echo ""; print_blueb "REMOVING FILES AND FOLDERS..."; print_blue "============================="; echo ""
-for dir in "/xlxd" "/var/www/html/xlxd" "/usr/src/xlxd" "/usr/src/XLXEcho" "/usr/src/XLX_Dark_Dashboard"; do [ -d "$dir" ] && { rm -rf "$dir"; print_green "✔ Removed directory: $dir"; }; done
-for file in "/etc/systemd/system/xlxd.service" "/etc/systemd/system/xlxecho.service" "/etc/systemd/system/xlx_log.service" "/etc/systemd/system/update_XLX_db.service" "/etc/systemd/system/update_XLX_db.timer" "/usr/local/bin/xlx_log.sh" "/etc/logrotate.d/xlx_logrotate.conf" "/var/log/xlxd.xml" "/var/log/xlxd.pid" "/var/log/xlx.log" "/var/log/xlxecho.log"; do [ -f "$file" ] && { rm -f "$file"; print_green "✔ Removed file: $file"; }; done
+for dir in "/ambed" "/etc/extended-name-reflector" "/xlxd" "/var/www/html/xlxd" "/usr/src/xlxd" "/usr/src/XLXEcho" "/usr/src/XLX_Dark_Dashboard"; do [ -d "$dir" ] && { rm -rf "$dir"; print_green "✔ Removed directory: $dir"; }; done
+for file in "/usr/local/bin/reflector-manager" "/usr/local/bin/dashboard-settings.py" "/usr/local/bin/update_db.sh" "/etc/systemd/system/ambed.service" "/etc/systemd/system/xlxd.service" "/etc/systemd/system/xlxecho.service" "/etc/systemd/system/xlx_log.service" "/etc/systemd/system/update_XLX_db.service" "/etc/systemd/system/update_XLX_db.timer" "/usr/local/bin/xlx_log.sh" "/etc/logrotate.d/xlx_logrotate.conf" "/var/log/xlxd.xml" "/var/log/xlxd.pid" "/var/log/xlx.log" "/var/log/xlxecho.log"; do [ -f "$file" ] && { rm -f "$file"; print_green "✔ Removed file: $file"; }; done
 echo ""; print_blueb "REMOVING APACHE CONFIGURATION..."; print_blue "================================"; echo ""
 if [ "$SKIP_APACHE" -eq 1 ]; then print_yellow "Apache cleanup skipped as requested."
 elif [ -n "$XLXDOMAIN" ]; then

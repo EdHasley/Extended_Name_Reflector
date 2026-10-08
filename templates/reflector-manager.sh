@@ -29,7 +29,11 @@ rebuild(){
   echo "This recompiles XLXD and restarts the reflector service."
   yn "Continue" || return
   (cd "$SRC_DIR" && make && make install) || { echo "Build/install failed. Existing service was not deliberately removed."; pause; return; }
-  systemctl restart xlxd.service
+  if [[ -x /ambed/ambed ]]; then
+    (cd /usr/src/xlxd/ambed && make && make install) || { echo "AMBED build failed; check the build output."; pause; return; }
+    systemctl is-active --quiet ambed.service && systemctl restart ambed.service
+  fi
+  systemctl restart xlxd.service || { echo "XLXD restart failed."; pause; return; }
   echo "XLXD rebuilt and restarted."
   pause
 }
@@ -89,7 +93,7 @@ ports_menu(){
       1) port_define DEXTRA_PORT;; 2) port_define DPLUS_PORT;; 3) port_define DCS_PORT;;
       4) port_define XLX_PORT;; 5) port_define DMRPLUS_PORT;; 6) port_define DMRMMDVM_PORT;;
       7) port_define YSF_PORT;; 8) port_define IMRS_PORT;; 9) port_define G3_PRESENCE_PORT;;
-      10) port_define G3_CONFIG_PORT;; 11) port_define G3_DV_PORT;; 12) port_define TRANSCODER_PORT;;
+      10) port_define G3_CONFIG_PORT;; 11) port_define G3_DV_PORT;; 12) transcoder_port;;
       [Xx]) return;;
     esac
   done
@@ -109,11 +113,20 @@ ysf_menu(){
   pause
 }
 
+transcoder_port(){
+  port_define TRANSCODER_PORT || return
+  if [[ -f /usr/src/xlxd/ambed/main.h ]]; then
+    local value=$(get_define TRANSCODER_PORT)
+    sed -Ei "s|^(#define[[:space:]]+TRANSCODER_PORT[[:space:]]+).*|\\1$value|" /usr/src/xlxd/ambed/main.h
+    echo "Both XLXD and AMBED ports updated. Choose Rebuild to apply."
+  fi
+}
+
 ambe_menu(){
   clear
   echo "=== AMBE / Transcoder ==="
-  port_define TRANSCODER_PORT
-  if systemctl list-unit-files ambed.service >/dev/null 2>&1; then
+  transcoder_port
+  if [[ -f /etc/systemd/system/ambed.service ]]; then
     if systemctl is-enabled --quiet ambed.service 2>/dev/null; then
       yn "Disable AMBE service" && systemctl disable --now ambed.service
     else
@@ -125,33 +138,31 @@ ambe_menu(){
   pause
 }
 
+dashboard_settings(){
+  local name callhome
+  name=$(sed -n 's/^EXTENDED_NAME="\(.*\)"/\1/p' "$CONF" | tail -1)
+  callhome=$(sed -n 's/^CALL_HOME="\([YN]\)"/\1/p' "$CONF" | tail -1)
+  python3 /usr/local/bin/dashboard-settings.py /var/www/html/xlxd/config.inc.php "$name" "${callhome:-N}"
+}
+
 dashboard_menu(){
-  mkdir -p "$(dirname "$CONF")"
-  touch "$CONF"
-  local old new
-  old=$(sed -n 's/^EXTENDED_NAME="\(.*\)"/\1/p' "$CONF" | tail -1)
-  echo "Current extended name: ${old:-not recorded}"
+  local new
   read -r -p "New extended name (Enter keeps current): " new
-  if [[ -n "$new" ]]; then
-    if grep -q '^EXTENDED_NAME=' "$CONF"; then sed -i "s|^EXTENDED_NAME=.*|EXTENDED_NAME=\"${new//|/ }\"|" "$CONF"; else echo "EXTENDED_NAME=\"$new\"" >> "$CONF"; fi
-    if [[ -f "$DASH_CFG" ]]; then
-      phpval=${new//\\/\\\\}; phpval=${phpval//\'/\\\'}
-      if grep -q "CustomTXT" "$DASH_CFG"; then sed -i "s|\\(CustomTXT'\\][[:space:]]*=[[:space:]]*'\\)[^']*|\\1$phpval|" "$DASH_CFG"; fi
-    fi
-    echo "Extended name updated."
-  fi
+  [[ -n "$new" ]] || return
+  # Metadata remains a simple quoted value; do not execute it as shell code.
+  [[ ${#new} -le 60 && "$new" != *\"* && "$new" != *\\* && "$new" != *$'\n'* ]] || { echo "Use 1–60 characters without double quotes or backslashes."; pause; return; }
+  local escaped=${new//&/\\&}; escaped=${escaped//|/\\|}
+  sed -i "s|^EXTENDED_NAME=.*|EXTENDED_NAME=\"$escaped\"|" "$CONF"
+  dashboard_settings && echo "Extended name updated."
   pause
 }
 
 callhome_menu(){
-  local cur=N ans php
-  [[ -f "$CONF" ]] && cur=$(sed -n 's/^CALL_HOME="\([YN]\)"/\1/p' "$CONF" | tail -1)
-  read -r -p "Public call-home advertising Y/N [${cur:-N}]: " ans; ans=${ans:-${cur:-N}}; ans=${ans^^}
+  local ans
+  read -r -p "Public call-home advertising Y/N: " ans; ans=${ans^^}
   [[ "$ans" == Y || "$ans" == N ]] || { echo "Invalid."; pause; return; }
-  if grep -q '^CALL_HOME=' "$CONF" 2>/dev/null; then sed -i "s/^CALL_HOME=.*/CALL_HOME=\"$ans\"/" "$CONF"; else echo "CALL_HOME=\"$ans\"" >> "$CONF"; fi
-  php=false; [[ "$ans" == Y ]] && php=true
-  [[ -f "$DASH_CFG" ]] && sed -Ei "s|(CallingHome\['Active'\][[:space:]]*=[[:space:]]*)(true|false)|\\1$php|" "$DASH_CFG"
-  echo "Call-home set to $ans."
+  sed -i "s/^CALL_HOME=.*/CALL_HOME=\"$ans\"/" "$CONF"
+  dashboard_settings && echo "Call-home set to $ans."
   pause
 }
 

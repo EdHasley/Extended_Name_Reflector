@@ -106,7 +106,7 @@ print_wrapped() {
 SEPQUE="_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_"
 
 #  10. Parameter definition
-XLXINS=$(pwd)
+XLXINS=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 USRSRC="/usr/src"
 HOMEIP=$(hostname -I 2>/dev/null | awk '{print $1}')
 # If the first address is the loopback, the real LAN/WAN address (if any)
@@ -122,15 +122,15 @@ if [ -z "$PUBLIP" ]; then
 fi
 NETACT=$(ip -o addr show up | awk '{print $2}' | grep -v lo | head -n1 || true)
 INFREF="https://xlxbbs.epf.lu/"
-XLXREP="https://github.com/EdHasley/xlxd.git"
-XLXECO="https://github.com/PP5PK/XLXEcho.git"
-XLXDSH="https://github.com/PP5PK/XLX_Dark_Dashboard.git"
+# XLXD, dashboard and Echo sources are bundled with this installer.
 DMRURL="http://xlxapi.rlx.lu/api/exportdmr.php"
 WEBDIR="/var/www/html/xlxd"
 XLXDIR="/xlxd"
 ACCEPT="| [ENTER] to accept..."
 SSL_OK=0
 DEPAPP=(
+python3
+file
 python3-certbot-apache
 build-essential
 wget
@@ -251,34 +251,17 @@ read_or_abort() {
     fi
 }
 
-#  Bootstrap support files needed before existing-install checks
-#  This allows a standalone installer.sh downloaded with curl to obtain
-#  the uninstaller and any other files stored under templates/ in this repo.
-BOOTSTRAP_REPO="https://raw.githubusercontent.com/EdHasley/Extended_Name_Reflector/main"
-mkdir -p "$XLXINS/templates"
-REQUIRED_TEMPLATES=(
-    uninstaller.sh
-    xlx_log.service
-    xlx_log.sh
-    xlx_logrotate.conf
-    apache.tbd.conf
-    xlxd.service
-    reflector_user_manager.sh
-    reflector-manager.sh
-)
-print_blue "$ICON_INFO Checking required support files..."
-for template_file in "${REQUIRED_TEMPLATES[@]}"; do
-    if [ ! -f "$XLXINS/templates/$template_file" ]; then
-        print_blue "$ICON_INFO Downloading templates/$template_file..."
-        if ! curl -fsSL "$BOOTSTRAP_REPO/templates/$template_file" -o "$XLXINS/templates/$template_file"; then
-            error_exit "Could not download templates/$template_file from GitHub."
-        fi
-    fi
+# A full checkout is required; never mix support files from another revision.
+for required in templates/dashboard-settings.py templates/uninstaller.sh templates/xlxd.service templates/xlx_log.service templates/xlx_log.sh templates/xlx_logrotate.conf templates/apache.tbd.conf templates/reflector_user_manager.sh templates/reflector-manager.sh xlxd/src/main.h xlxd/ambed/main.h dashboard/index.php XLXEcho/xlxecho.c; do
+    [ -f "$XLXINS/$required" ] || error_exit "Missing bundled file: $required. Clone the complete Extended_Name_Reflector repository as shown in README.md."
 done
-chmod +x "$XLXINS/templates/uninstaller.sh" "$XLXINS/templates/xlx_log.sh" "$XLXINS/templates/reflector_user_manager.sh" "$XLXINS/templates/reflector-manager.sh"
+chmod +x "$XLXINS/templates/"*.sh
+existing_install() {
+    [ -e /xlxd ] || [ -e /usr/src/xlxd ] || [ -e /var/www/html/xlxd ] || [ -e /etc/systemd/system/xlxd.service ] || [ -e /ambed ]
+}
 
 #  18. Check for existing installs
-if [ -e "$XLXDIR/xlxd" ]; then
+if existing_install; then
     echo ""
     line_type2
     echo ""
@@ -336,7 +319,7 @@ if [ -e "$XLXDIR/xlxd" ]; then
     fi
 
     # Verify the uninstallation was actually completed
-    if [ -e "$XLXDIR/xlxd" ]; then
+    if existing_install; then
         echo ""
         print_redd "Uninstallation does not appear to be complete — $XLXDIR/xlxd still exists."
         print_wrapped "Please remove the existing installation manually and try again."
@@ -464,10 +447,10 @@ question_extended_name() {
     while true; do
         read_or_abort EXTENDED_NAME
         EXTENDED_NAME=${EXTENDED_NAME:-"$XRFNUM Reflector"}
-        if [[ ${#EXTENDED_NAME} -ge 1 && ${#EXTENDED_NAME} -le 60 ]]; then
+        if [[ ${#EXTENDED_NAME} -ge 1 && ${#EXTENDED_NAME} -le 60 && "$EXTENDED_NAME" != *\"* && "$EXTENDED_NAME" != *\\* ]]; then
             break
         fi
-        msg_caution "Extended name must be 1 to 60 characters."
+        msg_caution "Extended name must be 1 to 60 characters, without double quotes or backslashes."
     done
     print_yellow "Using display name: $EXTENDED_NAME"
 }
@@ -1221,8 +1204,8 @@ center_wrap_color $BLUE "=============================="
 echo ""
 echo ""
 cd "$USRSRC" || error_exit "Failed to change to $USRSRC directory"
-echo "Cloning repository..."
-git clone --depth 1 "$XLXREP" || error_exit "Failed to clone XLX repository"
+echo "Copying bundled files..."
+cp -a "$XLXINS/xlxd" "$USRSRC/xlxd" || error_exit "Failed to copy bundled XLXD source"
 cd "$USRSRC/xlxd/src" || error_exit "Failed to change to xlxd/src directory"
 make clean || error_exit "Failed to run 'make clean'. Check the Makefile and build environment."
 echo "Seeding customizations..."
@@ -1315,7 +1298,7 @@ echo "Ethernet IP address: $HOMEIP"
 echo "Public IP address: $PUBLIP"
 echo "Network adapter name: $NETACT"
 echo ""
-msg_success "Repository cloned and customizations applied!"
+msg_success "Bundled source copied and customizations applied!"
 echo ""
 line_type1
 echo ""
@@ -1345,7 +1328,7 @@ if [[ "$ENABLE_TRANSCODER" == "Y" ]]; then
             armv7l) FTDI_URL="https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-arm-v7-hf-1.4.34.tgz"; FTDI_TGZ="libftd2xx-linux-arm-v7-hf-1.4.34.tgz" ;;
             *) error_exit "Unsupported CPU architecture for automatic FTDI D2XX install: $ARC" ;;
         esac
-        FTDI_WORK="/tmp/ftdi-d2xx-$"; mkdir -p "$FTDI_WORK"; cd "$FTDI_WORK"
+        FTDI_WORK=$(mktemp -d /tmp/ftdi-d2xx.XXXXXX); cd "$FTDI_WORK" || error_exit "Failed to enter FTDI work directory"
         wget -q "$FTDI_URL" -O "$FTDI_TGZ" || error_exit "Failed to download FTDI D2XX driver"
         tar xfz "$FTDI_TGZ" || error_exit "Failed to extract FTDI D2XX driver"
         FTDI_LIB=$(find . -type f -name 'libftd2xx.so.1.4.34' | head -n1)
@@ -1480,14 +1463,15 @@ if [ "$INSTALL_ECHO" == "Y" ]; then
     echo ""
     echo ""
     cd "$USRSRC" || error_exit "Failed to change to $USRSRC directory"
-    echo "Cloning repository..."
-    git clone --depth 1 "$XLXECO" || error_exit "Failed to clone Echo Test repository"
+    echo "Copying bundled files..."
+    cp -a "$XLXINS/XLXEcho" "$USRSRC/XLXEcho" || error_exit "Failed to copy bundled Echo Test source"
     cd XLXEcho/ || error_exit "Failed to change to XLXEcho directory"
     echo "Compiling Echo Test..."
+    sed -i -E "s|^#define XLX_PORT [0-9]+|#define XLX_PORT ${XLX_PORT_USER:-10002}|" xlxecho.c
     gcc -o xlxecho xlxecho.c || error_exit "Failed to compile Echo Test"
     echo "Copying files and adjusting properties..."
     cp xlxecho /xlxd/ || error_exit "Failed to copy Echo Test binary"
-    cp "$USRSRC/xlxd/scripts/xlxecho.service" /etc/systemd/system/ || error_exit "Failed to copy xlxecho.service"
+    cp "$XLXINS/templates/xlxecho.service" /etc/systemd/system/ || error_exit "Failed to copy xlxecho.service"
     chmod 644 /etc/systemd/system/xlxecho.service
     echo ""
     msg_success "Echo Test server successfully installed!"
@@ -1500,9 +1484,10 @@ center_wrap_color $BLUE "==========================="
 echo ""
 echo ""
 cd "$USRSRC" || error_exit "Failed to change to $USRSRC directory"
-echo "Cloning repository..."
-git clone --depth 1 "$XLXDSH" || error_exit "Failed to clone Dashboard repository"
+echo "Copying bundled files..."
+cp -a "$XLXINS/dashboard" "$USRSRC/XLX_Dark_Dashboard" || error_exit "Failed to copy bundled dashboard"
 cp -R "$USRSRC/XLX_Dark_Dashboard/"* "$WEBDIR/" || error_exit "Failed to copy dashboard files"
+gzip -d "$WEBDIR/users_db/users_base.csv.gz" || error_exit "Failed to unpack bundled user database"
 echo "Seeding customizations..."
 XLXCONFIG="$WEBDIR/pgs/config.inc.php"
 if [ ! -f "$XLXCONFIG" ]; then
@@ -1535,12 +1520,7 @@ sed -i \
 
 # Keep public advertising independent from protocol operation.
 # The shipped dashboard loads this local override after its main config.
-cat > "$WEBDIR/config.inc.php" <<EOF
-<?php
-\$CallingHome['Active'] = $CALLHOME_PHP;
-\$PageOptions['CustomTXT'] = '$EXTENDED_NAME_ESC';
-?>
-EOF
+python3 "$XLXINS/templates/dashboard-settings.py" "$WEBDIR/config.inc.php" "$EXTENDED_NAME" "$CALLHOME_USER" || error_exit "Failed to write dashboard settings"
 chmod 644 "$WEBDIR/config.inc.php"
 
 # Handle URL separately due to # character
@@ -1568,6 +1548,7 @@ mv "$WEBDIR/users_db/" /xlxd/ || error_exit "Failed to move users_db directory"
 # Install this project's pinned PP5PK user manager plus the extended reflector manager.
 # PP5PK upstream is never modified; these are local copies maintained in this repository.
 cp "$XLXINS/templates/reflector_user_manager.sh" /xlxd/users_db/reflector_user_manager.sh || error_exit "Failed to install reflector user manager"
+cp "$XLXINS/templates/dashboard-settings.py" /usr/local/bin/dashboard-settings.py || error_exit "Failed to install dashboard settings helper"
 cp "$XLXINS/templates/reflector-manager.sh" /usr/local/bin/reflector-manager || error_exit "Failed to install reflector-manager"
 chmod 755 /xlxd/users_db/reflector_user_manager.sh /usr/local/bin/reflector-manager
 echo "Updating permissions..."
