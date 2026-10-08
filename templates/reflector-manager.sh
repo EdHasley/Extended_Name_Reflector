@@ -4,6 +4,14 @@
 # PP5PK's original user/database manager remains available as option 1.
 set -u
 
+# Softer yellow used for manager headings/status labels.
+SOFT_YELLOW='\033[38;5;186m'
+GREEN='\033[38;5;114m'
+RED='\033[38;5;203m'
+NC='\033[0m'
+yellow(){ echo -e "${SOFT_YELLOW}$*${NC}"; }
+status_word(){ [[ "${1:-0}" == "1" ]] && echo "ENABLED" || echo "DISABLED"; }
+
 MAIN_H="/usr/src/xlxd/src/main.h"
 SRC_DIR="/usr/src/xlxd/src"
 CONF="/etc/extended-name-reflector/reflector.conf"
@@ -21,8 +29,20 @@ set_define(){
   grep -Eq "^[[:space:]]*#define[[:space:]]+${key}[[:space:]]+" "$MAIN_H" || { echo "Cannot find ${key} in ${MAIN_H}"; return 1; }
   sed -Ei "s|^([[:space:]]*#define[[:space:]]+${key}[[:space:]]+).*|\\1${val}|" "$MAIN_H"
 }
-toggle_define(){ local key="$1" cur ans; cur=$(get_define "$key"); read -r -p "$key (0=off, 1=on) [${cur:-?}]: " ans; ans=${ans:-$cur}; [[ "$ans" == 0 || "$ans" == 1 ]] || return 1; set_define "$key" "$ans"; }
-port_define(){ local key="$1" cur ans; cur=$(get_define "$key"); read -r -p "$key port [${cur:-?}]: " ans; ans=${ans:-$cur}; port "$ans" || { echo "Invalid port."; return 1; }; set_define "$key" "$ans"; }
+toggle_define(){
+  local key="$1" label="${2:-$1}" cur ans
+  cur=$(get_define "$key"); cur=${cur:-0}
+  echo "Current: $label = $(status_word "$cur")"
+  read -r -p "E=Enable, D=Disable, X=Back: " ans
+  case "${ans^^}" in E) set_define "$key" 1;; D) set_define "$key" 0;; X|'') return 0;; *) echo "Invalid choice."; return 1;; esac
+}
+port_define(){
+  local key="$1" cur ans; cur=$(get_define "$key")
+  echo "Current port: ${cur:-unknown}"
+  read -r -p "New port (Enter keeps current, X=Back): " ans
+  [[ "${ans^^}" == X ]] && return 0
+  ans=${ans:-$cur}; port "$ans" || { echo "Invalid port."; return 1; }; set_define "$key" "$ans"
+}
 
 rebuild(){
   echo
@@ -48,32 +68,25 @@ rebuild(){
 protocols(){
   while true; do
     clear
-    echo "=== Protocol Enable / Disable ==="
-    echo "1 DExtra       $(get_define ENABLE_DEXTRA)"
-    echo "2 DPlus        $(get_define ENABLE_DPLUS)"
-    echo "3 DCS          $(get_define ENABLE_DCS)"
-    echo "4 XLX interlink $(get_define ENABLE_XLX)"
-    echo "5 DMRPlus      $(get_define ENABLE_DMRPLUS)"
-    echo "6 DMR MMDVM    $(get_define ENABLE_DMRMMDVM)"
-    echo "7 Yaesu / System Fusion"
-    echo "8 G3 Terminal  $(get_define ENABLE_G3)"
-    echo "X Back"
+    yellow "=== Protocol Enable / Disable ==="
+    printf "%-3s %-24s %s\n" "#" "PROTOCOL" "STATUS"
+    printf "%-3s %-24s %s\n" "1" "DExtra" "$(status_word "$(get_define ENABLE_DEXTRA)")"
+    printf "%-3s %-24s %s\n" "2" "DPlus" "$(status_word "$(get_define ENABLE_DPLUS)")"
+    printf "%-3s %-24s %s\n" "3" "DCS" "$(status_word "$(get_define ENABLE_DCS)")"
+    printf "%-3s %-24s %s\n" "4" "XLX interlink" "$(status_word "$(get_define ENABLE_XLX)")"
+    printf "%-3s %-24s %s\n" "5" "DMRPlus" "$(status_word "$(get_define ENABLE_DMRPLUS)")"
+    printf "%-3s %-24s %s\n" "6" "DMR MMDVM" "$(status_word "$(get_define ENABLE_DMRMMDVM)")"
+    printf "%-3s %-24s %s\n" "7" "Yaesu / System Fusion" "$(status_word "$(get_define ENABLE_YSF)")"
+    printf "%-3s %-24s %s\n" "8" "IMRS" "$(status_word "$(get_define ENABLE_IMRS)")"
+    printf "%-3s %-24s %s\n" "9" "G3 Terminal" "$(status_word "$(get_define ENABLE_G3)")"
+    echo "X   Back"
     read -r -p "> " c
     case "$c" in
-      1) toggle_define ENABLE_DEXTRA ;;
-      2) toggle_define ENABLE_DPLUS ;;
-      3) toggle_define ENABLE_DCS ;;
-      4) toggle_define ENABLE_XLX ;;
-      5) toggle_define ENABLE_DMRPLUS ;;
-      6) toggle_define ENABLE_DMRMMDVM ;;
-      7)
-        echo "YSF:  $(get_define ENABLE_YSF)"
-        echo "IMRS: $(get_define ENABLE_IMRS)"
-        toggle_define ENABLE_YSF
-        toggle_define ENABLE_IMRS
-        ;;
-      8) toggle_define ENABLE_G3 ;;
-      [Xx]) return ;;
+      1) toggle_define ENABLE_DEXTRA "DExtra";; 2) toggle_define ENABLE_DPLUS "DPlus";;
+      3) toggle_define ENABLE_DCS "DCS";; 4) toggle_define ENABLE_XLX "XLX interlink";;
+      5) toggle_define ENABLE_DMRPLUS "DMRPlus";; 6) toggle_define ENABLE_DMRMMDVM "DMR MMDVM";;
+      7) toggle_define ENABLE_YSF "Yaesu / System Fusion";; 8) toggle_define ENABLE_IMRS "IMRS";;
+      9) toggle_define ENABLE_G3 "G3 Terminal";; [Xx]) return;;
     esac
   done
 }
@@ -81,68 +94,94 @@ protocols(){
 ports_menu(){
   while true; do
     clear
-    echo "=== Protocol Ports ==="
-    echo "1 DExtra       $(get_define DEXTRA_PORT)"
-    echo "2 DPlus        $(get_define DPLUS_PORT)"
-    echo "3 DCS          $(get_define DCS_PORT)"
-    echo "4 XLX interlink $(get_define XLX_PORT)"
-    echo "5 DMRPlus      $(get_define DMRPLUS_PORT)"
-    echo "6 DMR MMDVM    $(get_define DMRMMDVM_PORT)"
-    echo "7 YSF           $(get_define YSF_PORT)"
-    echo "8 IMRS          $(get_define IMRS_PORT)"
-    echo "9 G3 presence   $(get_define G3_PRESENCE_PORT)"
-    echo "10 G3 config    $(get_define G3_CONFIG_PORT)"
-    echo "11 G3 DV        $(get_define G3_DV_PORT)"
-    echo "12 AMBE/transcoder $(get_define TRANSCODER_PORT)"
-    echo "X Back"
+    yellow "=== Protocol Ports (enabled protocols only) ==="
+    local n=1 c key label
+    declare -a keys labels
+    add_port(){ keys[$n]="$1"; labels[$n]="$2"; printf "%-3s %-24s %s\n" "$n" "$2" "$(get_define "$1")"; ((n++)); }
+    [[ "$(get_define ENABLE_DEXTRA)" == 1 ]] && add_port DEXTRA_PORT "DExtra"
+    [[ "$(get_define ENABLE_DPLUS)" == 1 ]] && add_port DPLUS_PORT "DPlus"
+    [[ "$(get_define ENABLE_DCS)" == 1 ]] && add_port DCS_PORT "DCS"
+    [[ "$(get_define ENABLE_XLX)" == 1 ]] && add_port XLX_PORT "XLX interlink"
+    [[ "$(get_define ENABLE_DMRPLUS)" == 1 ]] && add_port DMRPLUS_PORT "DMRPlus"
+    [[ "$(get_define ENABLE_DMRMMDVM)" == 1 ]] && add_port DMRMMDVM_PORT "DMR MMDVM"
+    [[ "$(get_define ENABLE_YSF)" == 1 ]] && add_port YSF_PORT "YSF"
+    [[ "$(get_define ENABLE_IMRS)" == 1 ]] && add_port IMRS_PORT "IMRS"
+    if [[ "$(get_define ENABLE_G3)" == 1 ]]; then
+      add_port G3_PRESENCE_PORT "G3 presence"; add_port G3_CONFIG_PORT "G3 config"; add_port G3_DV_PORT "G3 DV"
+    fi
+    echo "A   AMBE/transcoder"
+    echo "X   Back"
     read -r -p "> " c
-    case "$c" in
-      1) port_define DEXTRA_PORT;; 2) port_define DPLUS_PORT;; 3) port_define DCS_PORT;;
-      4) port_define XLX_PORT;; 5) port_define DMRPLUS_PORT;; 6) port_define DMRMMDVM_PORT;;
-      7) port_define YSF_PORT;; 8) port_define IMRS_PORT;; 9) port_define G3_PRESENCE_PORT;;
-      10) port_define G3_CONFIG_PORT;; 11) port_define G3_DV_PORT;; 12) transcoder_port;;
-      [Xx]) return;;
-    esac
+    [[ "${c^^}" == X ]] && return
+    [[ "${c^^}" == A ]] && { ambe_menu; continue; }
+    [[ "$c" =~ ^[0-9]+$ && -n "${keys[$c]:-}" ]] && port_define "${keys[$c]}"
   done
 }
 
-ysf_menu(){
-  clear
-  echo "=== Yaesu / System Fusion Settings ==="
-  toggle_define ENABLE_YSF
-  toggle_define ENABLE_IMRS
-  port_define YSF_PORT
-  port_define IMRS_PORT
-  local cur ans
-  cur=$(get_define YSF_DEFAULT_NODE_TX_FREQ); read -r -p "YSF frequency Hz [${cur:-433125000}]: " ans; ans=${ans:-${cur:-433125000}}
-  [[ "$ans" =~ ^[0-9]+$ ]] && { set_define YSF_DEFAULT_NODE_TX_FREQ "$ans"; set_define YSF_DEFAULT_NODE_RX_FREQ "$ans"; }
-  toggle_define YSF_AUTOLINK_ENABLE || true
+install_ambe(){
+  echo "AMBED requires compatible AMBE hardware to operate."
+  [[ -d /usr/src/xlxd/ambed ]] || { echo "Bundled AMBED source is not present at /usr/src/xlxd/ambed."; pause; return; }
+  yn "Install AMBED now" || return
+  (cd /usr/src/xlxd/ambed && make clean && make && make install) || { echo "AMBED build/install failed."; pause; return; }
+  cat > /etc/systemd/system/ambed.service <<'EOF'
+[Unit]
+Description=AMBED Transcoder
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+ExecStartPre=-/sbin/rmmod ftdi_sio
+ExecStartPre=-/sbin/rmmod usbserial
+ExecStart=/ambed/ambed 127.0.0.1
+User=root
+Group=root
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable ambed.service >/dev/null 2>&1 || true
+  echo "AMBED installed. Connect compatible AMBE hardware before starting the service."
   pause
 }
 
 transcoder_port(){
+  local value
   port_define TRANSCODER_PORT || return
+  value=$(get_define TRANSCODER_PORT)
   if [[ -f /usr/src/xlxd/ambed/main.h ]]; then
-    local value=$(get_define TRANSCODER_PORT)
     sed -Ei "s|^(#define[[:space:]]+TRANSCODER_PORT[[:space:]]+).*|\\1$value|" /usr/src/xlxd/ambed/main.h
-    echo "Both XLXD and AMBED ports updated. Choose Rebuild to apply."
   fi
+  echo "Transcoder port set to $value. Choose Rebuild to apply compiled changes."
+  pause
 }
 
 ambe_menu(){
-  clear
-  echo "=== AMBE / Transcoder ==="
-  transcoder_port
-  if [[ -f /etc/systemd/system/ambed.service ]]; then
-    if systemctl is-enabled --quiet ambed.service 2>/dev/null; then
-      yn "Disable AMBE service" && systemctl disable --now ambed.service
+  while true; do
+    clear
+    yellow "=== AMBE / Transcoder ==="
+    if [[ -x /ambed/ambed ]]; then
+      echo "Status: INSTALLED"
+      echo "Port:   $(get_define TRANSCODER_PORT)"
+      echo "1 Change transcoder port"
+      echo "2 Enable/disable AMBED service"
+      echo "X Back"
+      read -r -p "> " c
+      case "$c" in
+        1) transcoder_port;;
+        2) if systemctl is-enabled --quiet ambed.service 2>/dev/null; then systemctl disable --now ambed.service; else systemctl enable --now ambed.service; fi;;
+        [Xx]) return;;
+      esac
     else
-      yn "Enable AMBE service" && systemctl enable --now ambed.service
+      echo "Status: NOT INSTALLED"
+      echo "Compatible AMBE hardware is required for transcoding to work."
+      echo "1 Install AMBED/transcoder software"
+      echo "X Back"
+      read -r -p "> " c
+      case "$c" in 1) install_ambe;; [Xx]) return;; esac
     fi
-  else
-    echo "AMBED service is not installed. The manager will not install hardware drivers automatically."
-  fi
-  pause
+  done
 }
 
 dashboard_settings(){
@@ -153,18 +192,12 @@ dashboard_settings(){
 }
 
 dashboard_menu(){
-  local new
-  read -r -p "New extended name (Enter keeps current): " new
-  [[ -n "$new" ]] || return
-  # Metadata remains a simple quoted value; do not execute it as shell code.
-  [[ ${#new} -le 60 && "$new" != *\"* && "$new" != *\\* && "$new" != *$'\n'* ]] || { echo "Use 1–60 characters without double quotes or backslashes."; pause; return; }
-  local escaped=${new//&/\\&}; escaped=${escaped//|/\\|}
-  sed -i "s|^EXTENDED_NAME=.*|EXTENDED_NAME=\"$escaped\"|" "$CONF"
-  dashboard_settings && echo "Extended name updated."
-  pause
-}
-
-callhome_menu(){
+  local current new
+  current=$(sed -n 's/^EXTENDED_NAME="\\(.*\\)"/\\1/p' "$CONF" | tail -1)
+  echo "Current extended name: ${current:-not set}"
+  read -r -p "New extended name (Enter keeps current, X=Back): " new
+  [[ "${new^^}" == X || -z "$new" ]] && return
+  [[ ${#new} -le 60 && "$new" != *\"* && "$new" != *\\\\* && "$new" != *(){
   local ans
   read -r -p "Public call-home advertising Y/N: " ans; ans=${ans^^}
   [[ "$ans" == Y || "$ans" == N ]] || { echo "Invalid."; pause; return; }
@@ -212,24 +245,23 @@ status_menu(){
 need_root "$@"
 while true; do
   clear
-  echo "=============================================="
-  echo "        EXTENDED NAME REFLECTOR MANAGER"
-  echo "=============================================="
+  yellow "=============================================="
+  yellow "        EXTENDED NAME REFLECTOR MANAGER"
+  yellow "=============================================="
   echo "1. User / RadioID / whitelist management"
   echo "2. Enable or disable protocols"
   echo "3. Change protocol ports"
-  echo "4. Yaesu / System Fusion / IMRS settings"
-  echo "5. AMBE / transcoder settings"
-  echo "6. Extended name / dashboard text"
-  echo "7. Public call-home advertising"
-  echo "8. Optional custom dashboard header.png"
-  echo "9. Rebuild XLXD and restart reflector"
-  echo "10. Show service / reflector status"
+  echo "4. AMBE / transcoder settings"
+  echo "5. Extended name / dashboard text"
+  echo "6. Public call-home advertising"
+  echo "7. Rebuild XLXD and restart reflector"
+  echo "8. XLXD uninstall / reinstall maintenance"
+  echo "9. Show service / reflector status"
   echo "X. Exit"
   read -r -p "> " choice
   case "$choice" in
     1) [[ -x "$USER_MANAGER" ]] && "$USER_MANAGER" || { echo "PP5PK user manager is missing."; pause; };;
-    2) protocols;; 3) ports_menu;; 4) ysf_menu;; 5) ambe_menu;; 6) dashboard_menu;;
-    7) callhome_menu;; 8) header_menu;; 9) rebuild;; 10) status_menu;; [Xx]) exit 0;;
+    2) protocols;; 3) ports_menu;; 4) ambe_menu;; 5) dashboard_menu;;
+    6) callhome_menu;; 7) rebuild;; 8) maintenance_menu;; 9) status_menu;; [Xx]) exit 0;;
   esac
 done
