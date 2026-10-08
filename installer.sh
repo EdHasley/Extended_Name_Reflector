@@ -252,7 +252,7 @@ read_or_abort() {
 }
 
 # A full checkout is required; never mix support files from another revision.
-for required in templates/dashboard-settings.py templates/uninstaller.sh templates/xlxd.service templates/xlx_log.service templates/xlx_log.sh templates/xlx_logrotate.conf templates/apache.tbd.conf templates/reflector_user_manager.sh templates/reflector-manager.sh xlxd/src/main.h xlxd/ambed/main.h dashboard/index.php XLXEcho/xlxecho.c; do
+for required in templates/render-dashboard.py templates/dashboard-settings.py templates/uninstaller.sh templates/xlxd.service templates/xlx_log.service templates/xlx_log.sh templates/xlx_logrotate.conf templates/apache.tbd.conf templates/reflector_user_manager.sh templates/reflector-manager.sh xlxd/src/main.h xlxd/ambed/main.h dashboard/index.php XLXEcho/xlxecho.c; do
     [ -f "$XLXINS/$required" ] || error_exit "Missing bundled file: $required. Clone the complete Extended_Name_Reflector repository as shown in README.md."
 done
 chmod +x "$XLXINS/templates/"*.sh
@@ -1494,38 +1494,11 @@ if [ ! -f "$XLXCONFIG" ]; then
     error_exit "Configuration file $XLXCONFIG not found"
 fi
 
-# Escape variables for sed
-EMAIL_ESC=$(escape_sed "$EMAIL")
-CALLSIGN_ESC=$(escape_sed "$CALLSIGN")
-HEADER_ESC=$(escape_sed "$HEADER")
-FOOTER_ESC=$(escape_sed "$FOOTER")
+# Write PHP literals directly; display names and comments may contain apostrophes.
 XLXDOMAIN_ESC=$(escape_sed "$XLXDOMAIN")
-COUNTRY_ESC=$(escape_sed "$COUNTRY")
-COMMENT_ESC=$(escape_sed "$COMMENT")
-EXTENDED_NAME_ESC=$(escape_sed "$EXTENDED_NAME")
-if [[ "$CALLHOME_USER" == "Y" ]]; then CALLHOME_PHP=true; else CALLHOME_PHP=false; fi
-NETACT_ESC=$(escape_sed "$NETACT")
-
-# Apply all customizations with escaped variables
-sed -i \
-    -e "s|your_email|$EMAIL_ESC|g" \
-    -e "s|LX1IQ|$CALLSIGN_ESC|g" \
-    -e "s|MODQTD|$MODQTD|g" \
-    -e "s|custom_header|$HEADER_ESC|g" \
-    -e "s|custom_footnote|$FOOTER_ESC|g" \
-    -e "s|your_country|$COUNTRY_ESC|g" \
-    -e "s|your_comment|$COMMENT_ESC|g" \
-    -e "s|netact|$NETACT_ESC|g" \
-    "$XLXCONFIG" || error_exit "Failed to apply customizations to $XLXCONFIG"
-
-# Keep public advertising independent from protocol operation.
-# The shipped dashboard loads this local override after its main config.
+python3 "$XLXINS/templates/render-dashboard.py" "$XLXCONFIG" "$EMAIL" "$HEADER" "$FOOTER" "$COUNTRY" "$COMMENT" "$NETACT" "$MODQTD" "$XLXDOMAIN" || error_exit "Failed to configure dashboard"
 python3 "$XLXINS/templates/dashboard-settings.py" "$WEBDIR/config.inc.php" "$EXTENDED_NAME" "$CALLHOME_USER" || error_exit "Failed to write dashboard settings"
 chmod 644 "$WEBDIR/config.inc.php"
-
-# Handle URL separately due to # character
-sed -i "s#http://your_dashboard#http://$XLXDOMAIN_ESC#g" "$XLXCONFIG" \
-    || error_exit "Failed to apply dashboard URL to $XLXCONFIG"
 
 cp "$XLXINS/templates/apache.tbd.conf" /etc/apache2/sites-available/"$XLXDOMAIN".conf || error_exit "Failed to copy Apache config"
 sed -i \

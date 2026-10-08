@@ -16,6 +16,8 @@ jobs:
         run: find dashboard -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Dashboard name and call-home overrides
         run: |
+          python3 templates/render-dashboard.py dashboard/pgs/config.inc.php test@example.com "Ed's Reflector" "Ed's footer" USA "Ed's club" eth0 10 example.com
+          php -l dashboard/pgs/config.inc.php
           python3 templates/dashboard-settings.py dashboard/config.inc.php "Ed's & Club Reflector" N
           php -r 'require "dashboard/pgs/config.inc.php"; if ($CallingHome["Active"] !== false || $PageOptions["CustomTXT"] !== "Ed\x27s & Club Reflector") { exit(1); }'
           python3 templates/dashboard-settings.py dashboard/config.inc.php 'XLXX80 Reflector' Y

@@ -33,6 +33,12 @@ rebuild(){
     (cd /usr/src/xlxd/ambed && make && make install) || { echo "AMBED build failed; check the build output."; pause; return; }
     systemctl is-active --quiet ambed.service && systemctl restart ambed.service
   fi
+  if [[ -x /xlxd/xlxecho && -f /usr/src/XLXEcho/xlxecho.c ]]; then
+    local interlink_port=$(get_define XLX_PORT)
+    sed -Ei "s|^#define XLX_PORT [0-9]+|#define XLX_PORT $interlink_port|" /usr/src/XLXEcho/xlxecho.c
+    gcc -o /xlxd/xlxecho /usr/src/XLXEcho/xlxecho.c || { echo "Echo Test build failed."; pause; return; }
+    systemctl is-active --quiet xlxecho.service && systemctl restart xlxecho.service
+  fi
   systemctl restart xlxd.service || { echo "XLXD restart failed."; pause; return; }
   echo "XLXD rebuilt and restarted."
   pause
