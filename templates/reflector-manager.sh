@@ -193,16 +193,34 @@ dashboard_settings(){
 
 dashboard_menu(){
   local current new
-  current=$(sed -n 's/^EXTENDED_NAME="\\(.*\\)"/\\1/p' "$CONF" | tail -1)
+  current=$(sed -n 's/^EXTENDED_NAME="\(.*\)"/\1/p' "$CONF" 2>/dev/null | tail -1)
   echo "Current extended name: ${current:-not set}"
   read -r -p "New extended name (Enter keeps current, X=Back): " new
   [[ "${new^^}" == X || -z "$new" ]] && return
-  [[ ${#new} -le 60 && "$new" != *\"* && "$new" != *\\\\* && "$new" != *(){
-  local ans
-  read -r -p "Public call-home advertising Y/N: " ans; ans=${ans^^}
-  [[ "$ans" == Y || "$ans" == N ]] || { echo "Invalid."; pause; return; }
+  if [[ ${#new} -lt 1 || ${#new} -gt 60 || "$new" == *\"* || "$new" == *\\* ]]; then
+    echo "Extended name must be 1-60 characters and cannot contain double quotes or backslashes."
+    pause
+    return
+  fi
+  sed -i "s|^EXTENDED_NAME=.*|EXTENDED_NAME=\"$new\"|" "$CONF"
+  dashboard_settings && echo "Extended name set to: $new"
+  pause
+}
+
+callhome_menu(){
+  local current ans
+  current=$(sed -n 's/^CALL_HOME="\([YN]\)"/\1/p' "$CONF" 2>/dev/null | tail -1)
+  [[ "$current" == Y ]] && echo "Current call-home advertising: ENABLED" || echo "Current call-home advertising: DISABLED"
+  read -r -p "E=Enable, D=Disable, X=Back: " ans
+  case "${ans^^}" in
+    E) ans=Y;;
+    D) ans=N;;
+    X|'') return;;
+    *) echo "Invalid choice."; pause; return;;
+  esac
   sed -i "s/^CALL_HOME=.*/CALL_HOME=\"$ans\"/" "$CONF"
-  dashboard_settings && echo "Call-home set to $ans."
+  dashboard_settings
+  [[ "$ans" == Y ]] && echo "Call-home advertising is now ENABLED." || echo "Call-home advertising is now DISABLED."
   pause
 }
 
@@ -231,6 +249,33 @@ header_menu(){
   chmod 644 "$current"
   echo "Custom header installed. Width was allowed to vary; height remained ${oldh}px."
   pause
+}
+
+maintenance_menu(){
+  while true; do
+    clear
+    yellow "=== XLXD Maintenance ==="
+    echo "1 Reinstall/rebuild XLXD from the existing source (preserves reflector configuration)"
+    echo "2 Uninstall XLXD core"
+    echo "X Back"
+    read -r -p "> " c
+    case "$c" in
+      1) rebuild; return;;
+      2)
+        echo "This removes the XLXD core/service only. Dashboard, SSL/Certbot, Cloudflared, and AMBED are not deliberately removed."
+        read -r -p "Type UNINSTALL to confirm, or X to go back: " ans
+        [[ "${ans^^}" == X ]] && return
+        [[ "$ans" == UNINSTALL ]] || { echo "Uninstall cancelled."; pause; return; }
+        systemctl disable --now xlxd.service 2>/dev/null || true
+        rm -f /etc/systemd/system/xlxd.service /xlxd/xlxd
+        systemctl daemon-reload
+        echo "XLXD core binary/service removed. Configuration and other components were preserved."
+        pause
+        return
+        ;;
+      [Xx]) return;;
+    esac
+  done
 }
 
 status_menu(){
