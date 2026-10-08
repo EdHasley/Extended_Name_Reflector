@@ -1019,29 +1019,26 @@ review_settings() {
     echo ""
 
     print_wrapped "01. Protocol ID:         $XRFNUM"
-    print_wrapped "17. Extended Name:       $EXTENDED_NAME"
-    print_wrapped "02. FQDN:                $XLXDOMAIN"
-    print_wrapped "03. E-mail:              $EMAIL"
-    print_wrapped "04. Callsign:            $CALLSIGN"
-    print_wrapped "05. Country:             $COUNTRY"
-    print_wrapped "06. Time Zone:           $FINAL_DISPLAY"
-    print_wrapped "07. XLX list comment:    $COMMENT"
-    print_wrapped "08. Tab page text:       $HEADER"
-    print_wrapped "09. Dashboard footnote:  $FOOTER"
-    print_wrapped "10. SSL certification:   $INSTALL_SSL"
-    print_wrapped "11. Echo Test:           $INSTALL_ECHO"
-    print_wrapped "12. Modules:             $MODQTD"
+    print_wrapped "02. Extended Name:       $EXTENDED_NAME"
+    print_wrapped "03. FQDN:                $XLXDOMAIN"
+    print_wrapped "04. E-mail:              $EMAIL"
+    print_wrapped "05. Callsign:            $CALLSIGN"
+    print_wrapped "06. Country:             $COUNTRY"
+    print_wrapped "07. Time Zone:           $FINAL_DISPLAY"
+    print_wrapped "08. XLX list comment:    $COMMENT"
+    print_wrapped "09. Tab page text:       $HEADER"
+    print_wrapped "10. Dashboard footnote:  $FOOTER"
+    print_wrapped "11. SSL certification:   $INSTALL_SSL"
+    print_wrapped "12. Echo Test:           $INSTALL_ECHO"
+    print_wrapped "13. Modules:             $MODQTD"
+    print_wrapped "14. Protocols: DExtra=$ENABLE_DEXTRA_USER DPlus=$ENABLE_DPLUS_USER DCS=$ENABLE_DCS_USER XLX=$ENABLE_XLX_USER DMRPlus=$ENABLE_DMRPLUS_USER DMR=$ENABLE_DMRMMDVM_USER YSF=$ENABLE_YSF_USER G3=$ENABLE_G3_USER IMRS=$ENABLE_IMRS_USER"
     [[ "$ENABLE_YSF_USER" == "Y" ]] && print_wrapped "    YSF UDP Port:        $YSFPORT"
     [[ "$ENABLE_YSF_USER" == "Y" ]] && print_wrapped "    YSF frequency:       $YSFFREQ"
     [[ "$ENABLE_YSF_USER" == "Y" ]] && print_wrapped "    YSF Auto-link:       $AUTOLINK_USER"
-
-    if [[ "$AUTOLINK" -eq 1 ]]; then
-        print_wrapped "16. YSF module:          $MODAUTO"
-    fi
-    print_wrapped "18. Protocols: DExtra=$ENABLE_DEXTRA_USER DPlus=$ENABLE_DPLUS_USER DCS=$ENABLE_DCS_USER XLX=$ENABLE_XLX_USER DMRPlus=$ENABLE_DMRPLUS_USER DMR=$ENABLE_DMRMMDVM_USER YSF=$ENABLE_YSF_USER G3=$ENABLE_G3_USER IMRS=$ENABLE_IMRS_USER"
-    print_wrapped "19. AMBE/transcoder:      $ENABLE_TRANSCODER"
+    [[ "$AUTOLINK" -eq 1 ]] && print_wrapped "    YSF module:          $MODAUTO"
+    print_wrapped "15. AMBE/transcoder:     $ENABLE_TRANSCODER"
     [[ "$ENABLE_TRANSCODER" == "Y" ]] && print_wrapped "    AMBE/transcoder port: $TRANSCODER_PORT_USER"
-    print_wrapped "20. Public call-home:     $CALLHOME_USER"
+    print_wrapped "16. Public call-home:    $CALLHOME_USER"
 
     echo ""
 }
@@ -1052,7 +1049,7 @@ while true; do
 
     review_settings
 
-    print_yellow "Settings correct? Press [ENTER] to confirm, type a question number to edit it, or [X] to cancel the installation."
+    print_yellow "Settings correct? Press [ENTER] to confirm, type a setting number to edit it, or [X] to cancel the installation."
     printf "> "
     read -r CONFIRM
     CONFIRM=${CONFIRM:-YES}
@@ -1071,67 +1068,39 @@ while true; do
 
     case "$CONFIRM" in
             1) question_01 ;;
-            2) question_02 ;;
-            3) question_03 ;;
-            4) question_04 ;;
-            5) question_05 ;;
-            6) question_06 ;;
-            7) question_07 ;;
-            8) question_08 ;;
-            9) question_09 ;;
-            10) question_10 ;;
-            11)
+            2) question_extended_name ;;
+            3) question_02 ;;
+            4) question_03 ;;
+            5) question_04 ;;
+            6) question_05 ;;
+            7) question_06 ;;
+            8) question_07 ;;
+            9) question_08 ;;
+            10) question_09 ;;
+            11) question_10 ;;
+            12)
                 OLD_ECHO="$INSTALL_ECHO"
                 question_11
-
                 if [[ "$OLD_ECHO" == "N" && "$INSTALL_ECHO" == "Y" ]]; then
-                    print_gray "Minimum modules changed. Please reconfigure question 12."
+                    print_gray "Minimum modules changed. Please reconfigure Modules."
                     question_12
                 fi
                 if [[ "$OLD_ECHO" == "Y" && "$INSTALL_ECHO" == "N" ]]; then
                     print_gray "Echo Test removed. Module minimum is now 1."
                 fi
-                # If Auto-link is enabled, validate module
-                if [[ "$AUTOLINK" -eq 1 && -n "${MODAUTO:-}" ]]; then
-                    if ! is_module_valid "$MODAUTO"; then
-                        echo ""
-                        msg_caution "Selected YSF Auto-link module is no longer valid, choose another."
-                        question_16
-                    fi
+                if [[ "$AUTOLINK" -eq 1 && -n "${MODAUTO:-}" ]] && ! is_module_valid "$MODAUTO"; then
+                    msg_caution "Selected YSF Auto-link module is no longer valid, choose another."
+                    question_16
                 fi
                 ;;
-            12)
+            13)
                 question_12
-                if [[ "$AUTOLINK" -eq 1 && -n "${MODAUTO:-}" ]]; then
-                    if ! is_module_valid "$MODAUTO"; then
-                        print_gray "Module range changed. Please reconfigure question 16."
-                        question_16
-                    fi
-                fi
-                ;;
-            13) question_13 ;;
-            14) question_14 ;;
-            15)
-                OLD_AUTOLINK="$AUTOLINK"
-                question_15
-
-                if [[ "$OLD_AUTOLINK" -eq 0 && "$AUTOLINK" -eq 1 ]]; then
+                if [[ "$AUTOLINK" -eq 1 && -n "${MODAUTO:-}" ]] && ! is_module_valid "$MODAUTO"; then
+                    print_gray "Module range changed. Please reconfigure the YSF Auto-link module."
                     question_16
                 fi
-
-                if [[ "$OLD_AUTOLINK" -eq 1 && "$AUTOLINK" -eq 0 ]]; then
-                    unset MODAUTO
-                fi
                 ;;
-            16)
-                if [[ "$AUTOLINK" -eq 1 ]]; then
-                    question_16
-                else
-                    msg_caution "Question 16 is not active."
-                fi
-                ;;
-            17) question_extended_name ;;
-            18)
+            14)
                 question_protocols
                 if [[ "$ENABLE_YSF_USER" == "Y" ]]; then
                     question_13
@@ -1143,10 +1112,10 @@ while true; do
                 fi
                 question_ports
                 ;;
-            19) question_transcoder ;;
-            20) question_callhome ;;
+            15) question_transcoder ;;
+            16) question_callhome ;;
             *)
-                msg_caution "Invalid input. Press [ENTER] to confirm, enter a question number (1-20), or [X] to cancel."
+                msg_caution "Invalid input. Press [ENTER] to confirm, enter a setting number (1-16), or [X] to cancel."
                 ;;
         esac
 
