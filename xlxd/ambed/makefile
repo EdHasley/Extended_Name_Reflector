@@ -20,5 +20,5 @@ clean:
 
 install:
 	mkdir -p /ambed
-	cp $(EXECUTABLE) /ambed/
+	cp -f $(EXECUTABLE) /ambed/
 	cp ./run /ambed/
