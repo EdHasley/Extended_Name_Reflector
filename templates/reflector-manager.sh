@@ -275,7 +275,10 @@ access_control_menu(){
     [[ -f "$f" ]] || { echo "File not found: $f"; pause; continue; }
     echo "Current file: $f"; echo "V View   E Edit   X Back"; read -r -p "> " a
     case "${a^^}" in
-      V) less "$f";;
+      V)
+        echo "Press Q to exit the viewer and return to the menu."
+        less -P 'Press Q to return to the menu | %f | Line %lt' -- "$f"
+        ;;
       E) safety_copy "$f"; if command -v nano >/dev/null 2>&1; then nano "$f"; else "${EDITOR:-vi}" "$f"; fi; echo "Saved. Safety copy: $BACKUP_DIR/safety/"; pause;;
     esac
   done
