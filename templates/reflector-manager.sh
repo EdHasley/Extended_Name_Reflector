@@ -377,6 +377,6 @@ while true; do
     1) [[ -x "$USER_MANAGER" ]] && "$USER_MANAGER" || { echo "PP5PK user manager is missing."; pause; };;
     2) protocols;; 3) ports_menu;; 4) ambe_menu;; 5) dashboard_menu;;
     6) callhome_menu;; 7) rebuild;; 8) maintenance_menu;; 9) status_menu;;
-    [Aa]) access_control_menu;; [Bb]) backup_restore_menu;; [Xx]) exit 0;;
+    10) access_control_menu;; 11) backup_restore_menu;; [Xx]) exit 0;;
   esac
 done
