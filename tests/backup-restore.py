@@ -55,3 +55,24 @@ output = subprocess.check_output(['bash', '-c', script], input='10\n11\nx\n', te
 assert 'ACCESS_OK' in output and 'BACKUP_OK' in output
 assert '10. Access control' in output and '11. Backup / restore' in output
 print('Manager choices 10 and 11 dispatch correctly.')
+
+selector = (root / 'installer.sh').read_text().split('select_installation_backup() {', 1)[1].split('\nRESTORE_DIR=""', 1)[0]
+selector = 'select_installation_backup() {' + selector
+with tempfile.TemporaryDirectory() as directory:
+    folder = pathlib.Path(directory)
+    # Isolate the standard backup folder as well as the current and installer folders.
+    selector = selector.replace('/var/backups/extended-name-reflector', directory)
+    prefix = 'print_wrapped(){ echo "$1"; }; read_or_abort(){ read -r "$1"; }; XLXINS="$PWD";\n'
+    suffix = '\nselect_installation_backup; printf "SELECTED=%s\\n" "$RESTORE_ARCHIVE"'
+    script = prefix + selector + suffix
+    output = subprocess.check_output(['bash', '-c', script], cwd=folder, input='1\n', text=True)
+    assert 'No portable backups found' in output and 'SELECTED=\n' in output
+    for name in ('reflector-backup-20261009-100000.tar.gz', 'reflector-backup-20261008-100000.tar.gz'):
+        (folder / name).touch()
+    output = subprocess.check_output(['bash', '-c', script], cwd=folder, input='99\n2\n', text=True)
+    assert 'Invalid selection' in output
+    assert 'SELECTED=' + str(folder / 'reflector-backup-20261009-100000.tar.gz') in output
+    assert output.count('2. Install from backup:') == 1  # overlapping folders deduplicated
+    output = subprocess.check_output(['bash', '-c', script], cwd=folder, input='3\n', text=True)
+    assert 'SELECTED=' + str(folder / 'reflector-backup-20261008-100000.tar.gz') in output
+print('Automatic backup selection passed: no backups, numbered choices, invalid input, duplicate folders.')

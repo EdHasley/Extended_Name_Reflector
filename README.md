@@ -32,7 +32,7 @@ This XLXD source supports the protocols listed above. It does not implement M17,
 
 ## Install from a backup
 
-First create a portable backup with `sudo reflector-manager`, **11**, then **1**. Copy the `.tar.gz` file to the replacement VM. Run the normal GitHub installation commands above, choose **2: Install from portable backup**, and enter its full path. Saved answers appear in the editable settings review before installation. The installer uses the replacement VM's current IP addresses and restores whitelist, blacklist, interlink, and terminal files.
+First create a portable backup with `sudo reflector-manager`, **11**, then **1**. Copy the `.tar.gz` file to the replacement VM. Run the normal GitHub installation commands above, select the number beside your backup in the startup menu. The installer automatically looks in `/var/backups/extended-name-reflector`, the current folder, and the installer folder. Choose **P** to enter a path to a backup stored elsewhere. Saved answers appear in the editable settings review before installation. The installer uses the replacement VM's current IP addresses and restores whitelist, blacklist, interlink, and terminal files.
 
 New backups include domain, sysop, dashboard, timezone, SSL, and Echo Test answers. Older backups restore their available settings and ask only for the installer details they did not contain. Backups are stored in `/var/backups/extended-name-reflector`, outside the uninstall paths. These are configuration backups, not full VM images: retain separate copies of custom dashboard assets, user databases/passwords, certificates, and `callinghome.php` when needed.
 
@@ -174,7 +174,7 @@ Visit any active reflector dashboard to see which XLX suffixes are in use. Any u
 
 Execute the commands from the [Quick Start](#-quick-start) section above.
 
-> **Our changes:** The startup menu offers fresh settings or portable backup restore. Our final review uses numbers 1–16; extended name, protocol/port selection, AMBED, and call-home are additional choices. YSF questions are asked only when YSF is enabled.
+> **Our changes:** The startup menu automatically lists discovered backups as numbered installation choices alongside fresh settings. Our final review uses numbers 1–16; extended name, protocol/port selection, AMBED, and call-home are additional choices. YSF questions are asked only when YSF is enabled.
 
 ### Step 3: Original PP5PK Configuration Prompts
 

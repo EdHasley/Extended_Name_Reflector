@@ -264,23 +264,61 @@ if ! command -v python3 >/dev/null 2>&1; then
     apt update
     apt install -y python3 || error_exit "Python 3 is required to load backups."
 fi
+# Discover saved backups before offering the installation choices.
+select_installation_backup() {
+    local backup_file selection index
+    local -a backups=()
+    mapfile -d '' -t backups < <(
+        find /var/backups/extended-name-reflector "$PWD" "$XLXINS" \
+            -maxdepth 1 -type f -name 'reflector-backup-*.tar.gz' -print0 2>/dev/null | sort -zu -r
+    )
+    RESTORE_ARCHIVE=""
+    print_wrapped "Installation choices:"
+    print_wrapped "1. Install with fresh settings"
+    index=2
+    for backup_file in "${backups[@]}"; do
+        printf '%s. Install from backup: %s\n' "$index" "$backup_file"
+        index=$((index + 1))
+    done
+    if [[ ${#backups[@]} -eq 0 ]]; then
+        print_wrapped "No portable backups found in /var/backups/extended-name-reflector, the current folder, or the installer folder."
+    fi
+    print_wrapped "P. Choose a backup from another folder"
+    print_wrapped "X. Cancel"
+    while true; do
+        read_or_abort selection
+        selection=${selection:-1}
+        case "$selection" in
+            1) return 0 ;;
+            [Pp])
+                print_wrapped "Full path to portable backup:"
+                read_or_abort RESTORE_ARCHIVE
+                [[ -f "$RESTORE_ARCHIVE" ]] && return 0
+                print_wrapped "Backup file not found. Select a number or P to try another path."
+                ;;
+            *)
+                if [[ "$selection" =~ ^[0-9]{1,6}$ ]]; then
+                    index=$((10#$selection - 2))
+                    if ((index >= 0 && index < ${#backups[@]})); then
+                        RESTORE_ARCHIVE=${backups[$index]}
+                        return 0
+                    fi
+                fi
+                print_wrapped "Invalid selection. Choose a displayed number, P, or X."
+                ;;
+        esac
+    done
+}
+
 RESTORE_DIR=""
-print_wrapped "Installation mode: 1 Fresh settings, 2 Install from portable backup, X Cancel"
-read_or_abort INSTALL_MODE
-case "${INSTALL_MODE:-1}" in
-    1) ;;
-    2)
-        find /var/backups/extended-name-reflector -maxdepth 1 -name 'reflector-backup-*.tar.gz' -print 2>/dev/null || true
-        print_wrapped "Full path to portable backup:"
-        read_or_abort RESTORE_ARCHIVE
-        RESTORE_DIR=$(mktemp -d)
-        trap 'rm -rf -- "$RESTORE_DIR"' EXIT
-        python3 "$XLXINS/templates/load-backup.py" "$RESTORE_ARCHIVE" "$RESTORE_DIR" || error_exit "Backup could not be loaded; installation stopped."
-        source "$RESTORE_DIR/settings.sh"
-        print_wrapped "Saved settings loaded. Current VM network addresses will be used. Older backups ask only for missing installer details."
-        ;;
-    *) error_exit "Invalid installation mode" ;;
-esac
+select_installation_backup
+if [[ -n "$RESTORE_ARCHIVE" ]]; then
+    RESTORE_DIR=$(mktemp -d)
+    trap 'rm -rf -- "$RESTORE_DIR"' EXIT
+    python3 "$XLXINS/templates/load-backup.py" "$RESTORE_ARCHIVE" "$RESTORE_DIR" || error_exit "Backup could not be loaded; installation stopped."
+    source "$RESTORE_DIR/settings.sh"
+    print_wrapped "Saved settings loaded. Current VM network addresses will be used. Older backups ask only for missing installer details."
+fi
 
 #  18. Check for existing installs
 if existing_install; then
