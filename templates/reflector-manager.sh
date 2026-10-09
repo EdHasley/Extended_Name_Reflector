@@ -289,7 +289,7 @@ backup_config(){
   [[ -f "$MAIN_H" ]] && cp -p "$MAIN_H" "$tmp/source/main.h"
   for f in xlxd.whitelist xlxd.blacklist xlxd.interlink xlxd.terminal; do [[ -f "$ACCESS_DIR/$f" ]] && cp -p "$ACCESS_DIR/$f" "$tmp/access/$f"; done
   current_lan=$(hostname -I 2>/dev/null | awk '{print $1}'); public_ip=$(curl -m 5 -s https://api4.ipify.org 2>/dev/null || true)
-  domain=$(sed -n 's/^DOMAIN="\(.*\)"/\1/p' "$CONF" 2>/dev/null | tail -1)
+  domain=$(sed -n 's/^XLXDOMAIN_B64="\(.*\)"/\1/p' "$CONF" 2>/dev/null | tail -1 | base64 -d 2>/dev/null || true)
   printf 'BACKUP_VERSION="1"\nLAN_IP="%s"\nPUBLIC_IP="%s"\nDOMAIN="%s"\n' "$current_lan" "$public_ip" "$domain" > "$tmp/network-reference.conf"
   out="$BACKUP_DIR/reflector-backup-$stamp.tar.gz"; tar -C "$tmp" -czf "$out" .; rm -rf "$tmp"; chmod 600 "$out"
   echo "Backup created: $out"; echo "This folder is outside /etc/extended-name-reflector and survives the project uninstaller."; pause
@@ -361,7 +361,6 @@ while true; do
   yellow "        EXTENDED NAME REFLECTOR MANAGER"
   yellow "=============================================="
   echo "1. User / RadioID management"
-  echo "A. Access control: whitelist / blacklist / interlink / terminal"
   echo "2. Enable or disable protocols"
   echo "3. Change protocol ports"
   echo "4. AMBE / transcoder settings"
@@ -370,7 +369,8 @@ while true; do
   echo "7. Rebuild XLXD and restart reflector"
   echo "8. XLXD uninstall / reinstall maintenance"
   echo "9. Show service / reflector status"
-  echo "B. Backup / restore reflector configuration"
+  echo "10. Access control: whitelist / blacklist / interlink / terminal"
+  echo "11. Backup / restore reflector configuration"
   echo "X. Exit"
   read -r -p "> " choice
   case "$choice" in

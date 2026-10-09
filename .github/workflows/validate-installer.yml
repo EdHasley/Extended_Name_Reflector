@@ -12,6 +12,8 @@ jobs:
           bash -n installer.sh
           for script in templates/*.sh; do bash -n "$script"; done
           shellcheck --severity=error installer.sh templates/reflector-manager.sh
+      - name: Portable backup restore
+        run: python3 tests/backup-restore.py
       - name: Dashboard PHP syntax
         run: find dashboard -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Dashboard name and call-home overrides

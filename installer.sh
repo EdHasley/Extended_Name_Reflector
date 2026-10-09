@@ -252,13 +252,35 @@ read_or_abort() {
 }
 
 # A full checkout is required; never mix support files from another revision.
-for required in templates/render-dashboard.py templates/dashboard-settings.py templates/uninstaller.sh templates/xlxd.service templates/xlx_log.service templates/xlx_log.sh templates/xlx_logrotate.conf templates/apache.tbd.conf templates/reflector_user_manager.sh templates/reflector-manager.sh xlxd/src/main.h xlxd/ambed/main.h dashboard/index.php XLXEcho/xlxecho.c; do
+for required in templates/load-backup.py templates/render-dashboard.py templates/dashboard-settings.py templates/uninstaller.sh templates/xlxd.service templates/xlx_log.service templates/xlx_log.sh templates/xlx_logrotate.conf templates/apache.tbd.conf templates/reflector_user_manager.sh templates/reflector-manager.sh xlxd/src/main.h xlxd/ambed/main.h dashboard/index.php XLXEcho/xlxecho.c; do
     [ -f "$XLXINS/$required" ] || error_exit "Missing bundled file: $required. Clone the complete Extended_Name_Reflector repository as shown in README.md."
 done
 chmod +x "$XLXINS/templates/"*.sh
 existing_install() {
     [ -e /xlxd ] || [ -e /usr/src/xlxd ] || [ -e /var/www/html/xlxd ] || [ -e /etc/systemd/system/xlxd.service ] || [ -e /ambed ]
 }
+
+if ! command -v python3 >/dev/null 2>&1; then
+    apt update
+    apt install -y python3 || error_exit "Python 3 is required to load backups."
+fi
+RESTORE_DIR=""
+print_wrapped "Installation mode: 1 Fresh settings, 2 Install from portable backup, X Cancel"
+read_or_abort INSTALL_MODE
+case "${INSTALL_MODE:-1}" in
+    1) ;;
+    2)
+        find /var/backups/extended-name-reflector -maxdepth 1 -name 'reflector-backup-*.tar.gz' -print 2>/dev/null || true
+        print_wrapped "Full path to portable backup:"
+        read_or_abort RESTORE_ARCHIVE
+        RESTORE_DIR=$(mktemp -d)
+        trap 'rm -rf -- "$RESTORE_DIR"' EXIT
+        python3 "$XLXINS/templates/load-backup.py" "$RESTORE_ARCHIVE" "$RESTORE_DIR" || error_exit "Backup could not be loaded; installation stopped."
+        source "$RESTORE_DIR/settings.sh"
+        print_wrapped "Saved settings loaded. Current VM network addresses will be used. Older backups ask only for missing installer details."
+        ;;
+    *) error_exit "Invalid installation mode" ;;
+esac
 
 #  18. Check for existing installs
 if existing_install; then
@@ -985,21 +1007,23 @@ question_callhome() {
 }
 
 collect_all_questions() {
-    question_01
-    question_extended_name
-    question_02
-    question_03
-    question_04
-    question_05
-    question_06
-    question_07
-    question_08
-    question_09
-    question_10
-    question_11
-    question_12
-    question_protocols
-    if [[ "$ENABLE_YSF_USER" == "Y" ]]; then
+    [[ -n "${XRFDIGIT:-}" ]] || question_01
+    [[ -n "${EXTENDED_NAME:-}" ]] || question_extended_name
+    [[ -n "${XLXDOMAIN:-}" ]] || question_02
+    [[ -n "${EMAIL:-}" ]] || question_03
+    [[ -n "${CALLSIGN:-}" ]] || question_04
+    [[ -n "${COUNTRY:-}" ]] || question_05
+    [[ -n "${TIMEZONE:-}" ]] || question_06
+    [[ -n "${COMMENT:-}" ]] || question_07
+    [[ -n "${HEADER:-}" ]] || question_08
+    [[ -n "${FOOTER:-}" ]] || question_09
+    [[ -n "${INSTALL_SSL:-}" ]] || question_10
+    [[ -n "${INSTALL_ECHO:-}" ]] || question_11
+    [[ -n "${MODQTD:-}" ]] || question_12
+    [[ -n "$RESTORE_DIR" ]] || question_protocols
+    if [[ -n "$RESTORE_DIR" ]]; then
+        : # YSF settings were read from the backed-up build configuration.
+    elif [[ "$ENABLE_YSF_USER" == "Y" ]]; then
         question_13
         question_14
         question_15
@@ -1007,9 +1031,9 @@ collect_all_questions() {
     else
         YSFPORT=42000; YSFFREQ=433125000; AUTOLINK_USER=N; AUTOLINK=0; MODAUTO=""
     fi
-    question_ports
-    question_transcoder
-    question_callhome
+    [[ -n "$RESTORE_DIR" ]] || question_ports
+    [[ -n "$RESTORE_DIR" ]] || question_transcoder
+    [[ -n "$RESTORE_DIR" ]] || question_callhome
 }
 
 # Data input verification
@@ -1262,6 +1286,9 @@ YSF_AUTOLINK="$AUTOLINK"
 YSF_AUTOLINK_MODULE="${MODAUTO:-}"
 MODULE_COUNT="$MODQTD"
 EOF
+for saved_key in XLXDOMAIN EMAIL CALLSIGN COUNTRY TIMEZONE COMMENT HEADER FOOTER INSTALL_SSL INSTALL_ECHO; do
+    printf '%s_B64="%s"\n' "$saved_key" "$(printf '%s' "${!saved_key}" | base64 -w0)" >> /etc/extended-name-reflector/reflector.conf
+done
 chmod 644 /etc/extended-name-reflector/reflector.conf
 
 echo "Reflector $EXTENDED_NAME ($XRFNUM)"
@@ -1681,6 +1708,14 @@ if [ -f "/etc/systemd/system/update_XLX_db.service" ]; then
     msg_success "update_XLX_db.service file found"
 else
     msg_error "update_XLX_db.service files not found at expected location"
+fi
+
+if [[ -n "$RESTORE_DIR" ]]; then
+    for access_file in xlxd.whitelist xlxd.blacklist xlxd.interlink xlxd.terminal; do
+        if [[ -f "$RESTORE_DIR/access/$access_file" ]]; then
+            cp -p "$RESTORE_DIR/access/$access_file" "$XLXDIR/$access_file"
+        fi
+    done
 fi
 
 # Check reflector management command
