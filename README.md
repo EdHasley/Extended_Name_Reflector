@@ -1,537 +1,277 @@
-# Extended Name Reflector
+# AF0WX XLX Reflector Installer
 
-A complete XLXD package with an interactive installer and reflector manager. XLXD, AMBED, the PP5PK dark dashboard, Echo Test, configuration files, and service templates are included in this repository. Installation builds the bundled files rather than cloning separate projects.
+Maintained by **Ed Hasley, AF0WX** in [EdHasley/Extended_Name_Reflector](https://github.com/EdHasley/Extended_Name_Reflector).
 
-## Install on a fresh Debian or Ubuntu test VM
+The AF0WX installer builds and installs the bundled XLXD reflector, PP5PK dashboard, optional AMBED transcoder, and optional Echo Test. It adds a reflector manager, selectable protocols and ports, separate extended display names, private/public call-home settings, and portable configuration backups.
 
-Run these commands on the new VM:
+**Credit to Daniel K., PP5PK:** This installer and its documentation are based on his [XLX Installer](https://github.com/PP5PK/XLX_Installer). His dashboard and user/RadioID management work are included with their original credits. AF0WX maintains the changes in this repository.
+
+## Requirements
+
+Use a Debian or Ubuntu VM with internet access and administrator access. The installer uses APT and systemd, installs dependencies, and runs an OS upgrade. Have your dashboard domain, sysop email/callsign, and three-character protocol ID ready. Automatic HTTPS requires the domain to resolve correctly and TCP ports 80 and 443 to reach this VM.
+
+Forward the ports for the protocols you enable to the VM running this reflector. AMBE hardware is required for D-Star transcoding to other modes; D-Star-only operation and DMR/YSF operation do not require AMBE transcoding hardware.
+
+## GitHub installation
+
+Run on the target VM:
 
 ```bash
 sudo apt update
 sudo apt install -y git
-git clone https://github.com/EdHasley/Extended_Name_Reflector.git
+cd /usr/src
+sudo git clone https://github.com/EdHasley/Extended_Name_Reflector.git
 cd Extended_Name_Reflector
 sudo bash installer.sh
 ```
 
-Download the **whole repository**. A standalone `installer.sh` download is no longer sufficient. Use a fresh test VM; the installer writes system services and the dashboard on the machine where you run it.
+Download the whole repository. The installer needs its bundled `templates/`, `xlxd/`, `dashboard/`, and `XLXEcho/` folders. A standalone `installer.sh` download is insufficient. Running `sudo bash installer.sh` avoids executable permission problems.
 
-## Installation choices
+To update an existing checkout before running the installer:
 
-- Three-character protocol ID, such as `X80` for `XLXX80`.
-- Separate extended display name, up to 60 characters.
-- Enable or disable DExtra, DPlus, DCS, XLX interlink, DMRPlus, DMR MMDVM, YSF, IMRS, and G3 Terminal. Disabled protocols do not open their listening sockets.
-- Custom UDP ports. DMR MMDVM defaults to **62030**.
-- Optional AMBED installation and configurable transcoder port, default **10100**.
-- Public call-home advertising, default **off**.
-- Module count, YSF frequency and auto-link, dashboard details, optional Echo Test and HTTPS.
+```bash
+cd /usr/src/Extended_Name_Reflector
+sudo git pull --ff-only
+sudo bash installer.sh
+```
 
-Before compilation, the numbered review menu allows changes to **2: Extended Name**, **14: Protocols and ports**, **15: AMBE**, and **16: Public call-home**, as well as the earlier choices.
+Pulling updates changes the checkout; it does not automatically update installed files or restart services. The installer detects existing installations and offers the full uninstaller before reinstalling. Create a backup before removal. Cancelling stops further steps; initial checks or an already confirmed uninstall may have changed the system.
 
-This XLXD source supports the protocols listed above. It does not implement M17, P25, or NXDN; these are not presented as working protocol options.
+## Startup menu and backup installation
 
-## Install from a backup
+| Choice | Action |
+| --- | --- |
+| 1 | Install with fresh settings |
+| 2 onward | Install from the backup shown beside that number |
+| P | Choose a backup from another folder by entering its full path |
+| X | Cancel |
 
-First create a portable backup with `sudo reflector-manager`, **11**, then **1**. Copy the `.tar.gz` file to the replacement VM. Run the normal GitHub installation commands above, select the number beside your backup in the startup menu. The installer automatically looks in `/var/backups/extended-name-reflector`, the current folder, and the installer folder. Choose **P** to enter a path to a backup stored elsewhere. Saved answers appear in the editable settings review before installation. The installer uses the replacement VM's current IP addresses and restores whitelist, blacklist, interlink, and terminal files.
+The installer automatically finds `reflector-backup-*.tar.gz` files in `/var/backups/extended-name-reflector`, the current working folder, and the installer folder. Duplicate paths are removed. If none are found, the menu says so.
 
-New backups include domain, sysop, dashboard, timezone, SSL, and Echo Test answers. Older backups restore their available settings and ask only for the installer details they did not contain. Backups are stored in `/var/backups/extended-name-reflector`, outside the uninstall paths. These are configuration backups, not full VM images: retain separate copies of custom dashboard assets, user databases/passwords, certificates, and `callinghome.php` when needed.
+Create a portable backup with `sudo reflector-manager`, **11**, then **1**. For a replacement VM, copy the archive into one of the folders above and select its number during installation. Saved settings are loaded before any existing-install removal and appear in the editable review. The replacement VM keeps its current network configuration; services use its detected IP addresses.
 
-## Manage an installed reflector
+Backups include installation metadata, XLXD build settings, and whitelist, blacklist, interlink, and terminal files. New installation metadata includes domain, email, callsign, country, timezone, dashboard text, SSL, and Echo Test choices. Older backups ask for details they did not save. Protocol switches and ports are read from the backed-up `main.h`, including changes made with the manager.
+
+These are configuration backups. Save custom dashboard images, user databases/passwords, certificates, and public calling-home identity separately when needed. The backup directory survives the full uninstaller.
+
+## Installation choices and settings review
+
+The initial questions collect identity, domain, sysop details, timezone, dashboard text, HTTPS, Echo Test, modules, protocols, ports, AMBED, and public advertising. YSF frequency and auto-link questions appear only when YSF is enabled.
+
+The **final review menu** uses the following numbers. Enter one to edit its setting before compilation, press Enter to proceed, or X to cancel.
+
+| Number | Setting |
+| --- | --- |
+| 1 | Protocol ID |
+| 2 | Extended name |
+| 3 | Dashboard FQDN |
+| 4 | Email |
+| 5 | Callsign |
+| 6 | Country |
+| 7 | Timezone |
+| 8 | XLX list comment |
+| 9 | Dashboard tab text |
+| 10 | Dashboard footer |
+| 11 | SSL certification |
+| 12 | Echo Test on module E |
+| 13 | Number of modules |
+| 14 | Protocol enable/disable and ports; YSF options when enabled |
+| 15 | AMBE/transcoder enablement and port |
+| 16 | Public call-home advertising |
+
+The protocol ID is three alphanumeric characters, for example `300`, producing `XLX300`. The extended display name is independent and accepts 1–60 characters. Public call-home advertising defaults to **off**. Modules range from 1–26; Echo Test on E requires at least five.
+
+The bundled source supports DExtra, DPlus, DCS, XLX interlink, DMRPlus, DMR MMDVM, YSF, IMRS, and G3 Terminal. Disabled protocols do not open their listening sockets. M17, P25, and NXDN are not implemented by this source.
+
+## Reflector Manager menu structure
+
+Run:
 
 ```bash
 sudo reflector-manager
 ```
 
-The main menu uses **1–11**: **10** opens access control and **11** opens backup/restore. The manager controls users, protocols and ports, YSF/IMRS, AMBED service operation, extended name, public advertising, and optional `header.png` replacement. A replacement PNG must have the installed header's height; its width may vary. The original image is backed up before replacement. The extended display name also appears beneath the dashboard header.
+| Choice | Main menu action |
+| --- | --- |
+| 1 | User / RadioID management |
+| 2 | Enable or disable protocols |
+| 3 | Change protocol ports |
+| 4 | AMBE / transcoder settings |
+| 5 | Extended name / dashboard text |
+| 6 | Public call-home advertising |
+| 7 | Rebuild XLXD and restart reflector |
+| 8 | XLXD uninstall / reinstall maintenance |
+| 9 | Show service / reflector status |
+| 10 | Access control: whitelist / blacklist / interlink / terminal |
+| 11 | Backup / restore reflector configuration |
+| X | Exit |
 
-Choose **7: Rebuild XLXD and restart reflector** after changing protocol switches or ports. The manager recompiles installed AMBED too, keeping its port synchronized with XLXD. Enabling AMBED requires it to have been installed with the optional installer choice and compatible hardware.
+Choose **7** after changing compiled protocol switches or ports. It also rebuilds installed AMBED and synchronizes Echo Test's interlink port. Manager option **5** edits the extended name displayed on the dashboard.
 
-Installation metadata is in `/etc/extended-name-reflector/reflector.conf`; protocol build settings are in `/usr/src/xlxd/src/main.h`. Dashboard name and advertising settings use `/var/www/html/xlxd/config.inc.php`.
+### Protocols: main option 2
 
-## HTTPS and external dependencies
+| Choice | Protocol |
+| --- | --- |
+| 1 | DExtra |
+| 2 | DPlus |
+| 3 | DCS |
+| 4 | XLX interlink |
+| 5 | DMRPlus |
+| 6 | DMR MMDVM |
+| 7 | Yaesu / System Fusion (YSF) |
+| 8 | IMRS |
+| 9 | G3 Terminal |
+| X | Back |
 
-For automatic HTTPS, the dashboard domain must resolve to this VM's public address and public TCP port 80 must reach its Apache server. HTTPS needs TCP 443 forwarded too. Certificate failure leaves HTTP available and reports the failure; after fixing DNS or forwarding, retry:
+After selecting a protocol, use **E** to enable, **D** to disable, or **X** to go back. The ports submenu, main option **3**, numbers its entries according to enabled protocols and includes the core JSON port. **A** opens AMBE/transcoder settings there; **X** goes back.
+
+### AMBE: main option 4
+
+When AMBED is installed, **1** changes its port and **2** enables/disables its service. When it is not installed, **1** offers installation from bundled source. **X** goes back. Compatible AMBE hardware and the FTDI runtime are needed for operation. Choose **7** from the main menu to apply compiled port changes.
+
+### Maintenance: main option 8
+
+| Choice | Action |
+| --- | --- |
+| 1 | Reinstall/rebuild XLXD from existing source, preserving configuration |
+| 2 | Uninstall XLXD core binary/service, after typing UNINSTALL |
+| X | Back |
+
+Core maintenance preserves the dashboard, configuration, AMBED, SSL/Certbot, and Cloudflared. Full removal through `templates/uninstaller.sh` has a broader scope, described below.
+
+### Access control: main option 10
+
+| Choice | File |
+| --- | --- |
+| 1 | `/xlxd/xlxd.whitelist` |
+| 2 | `/xlxd/xlxd.blacklist` |
+| 3 | `/xlxd/xlxd.interlink` |
+| 4 | `/xlxd/xlxd.terminal` |
+| X | Back |
+
+For the selected file, **V** views, **E** edits, and **X** goes back. Editing creates a timestamped safety copy in `/var/backups/extended-name-reflector/safety`.
+
+### Backup / restore: main option 11
+
+| Choice | Action |
+| --- | --- |
+| 1 | Create portable backup |
+| 2 | Restore portable backup to an installed reflector |
+| X | Back |
+
+Manager restore currently lists backup paths and asks for the full path. It keeps the VM's network configuration, saves pre-restore copies, and restores saved build/configuration and access files. Choose main option **7** afterward. For a fresh or replacement installation, use the installer's numbered backup selection instead.
+
+### User / RadioID management: main option 1
+
+This opens PP5PK's user manager. Its own menu has **1: Database (RadioID)**, **2: Access control**, and **X: Exit** to return to the AF0WX manager.
+
+| Database submenu | Access control submenu |
+| --- | --- |
+| 1: Add / Edit record | 1: Add user (whitelist + dashboard) |
+| 2: Delete record | 2: Reset password (dashboard) |
+| 3: List records by callsign | 3: Remove user (whitelist + dashboard) |
+| 4: Search records (filter) | 4: Look up user (whitelist + dashboard) |
+| 5: Create / Update SQL database | 5: List pending passwords |
+| X: Back | 6: List whitelist |
+| | X: Back |
+
+## Ports and forwarding
+
+Use the actual ports selected for your reflector. This installer does not configure router forwarding. The following are bundled defaults; only enabled protocols need their protocol ports forwarded.
+
+| Function | Default port | Transport |
+| --- | --- | --- |
+| Dashboard HTTP / HTTPS | 80 / 443 | TCP |
+| DExtra | 30001 | UDP |
+| DPlus | 20001 | UDP |
+| DCS | 30051 | UDP |
+| XLX core / JSON | 10001 | UDP |
+| XLX interlink | 10002 | UDP |
+| DMRPlus | 8880 | UDP |
+| DMR MMDVM | 62030 | UDP |
+| YSF | 42000 | UDP |
+| IMRS | 21110 | UDP |
+| G3 presence / configuration / DV | 12346 / 12345 / 40000 | UDP |
+| AMBE/transcoder controller | 10100 | UDP |
+
+AMBED normally communicates locally. Changing its controller port requires matching XLXD and AMBED settings; the installer and manager synchronize them. On a shared public IP, use distinct forwarded ports for separate reflectors.
+
+## Installed files and directories
+
+The checkout path below follows the installation commands above. If cloned elsewhere, run installer and uninstaller commands from that checkout.
+
+| Purpose | Location |
+| --- | --- |
+| AF0WX installer checkout | `/usr/src/Extended_Name_Reflector/` |
+| Bundled sources in checkout | `xlxd/`, `dashboard/`, `XLXEcho/`, `templates/` |
+| XLXD build source and settings | `/usr/src/xlxd/`, `/usr/src/xlxd/src/main.h` |
+| AMBED source / binary | `/usr/src/xlxd/ambed/`, `/ambed/ambed` |
+| Echo Test source / binary | `/usr/src/XLXEcho/`, `/xlxd/xlxecho` |
+| Dashboard source copy | `/usr/src/XLX_Dark_Dashboard/` |
+| Installed dashboard | `/var/www/html/xlxd/` |
+| Dashboard base configuration | `/var/www/html/xlxd/pgs/config.inc.php` |
+| Dashboard name / call-home overrides | `/var/www/html/xlxd/config.inc.php` |
+| Reflector binary and access files | `/xlxd/` |
+| Installation metadata | `/etc/extended-name-reflector/reflector.conf` |
+| AF0WX manager | `/usr/local/bin/reflector-manager` |
+| Dashboard settings helper | `/usr/local/bin/dashboard-settings.py` |
+| PP5PK user manager | `/xlxd/users_db/reflector_user_manager.sh` |
+| RadioID/operator files | `/xlxd/users_db/` |
+| Database update helper | `/usr/local/bin/update_db.sh` |
+| Dashboard authentication | `/var/www/restricted/.htpasswd` |
+| Apache site configuration | `/etc/apache2/sites-available/YOUR_DOMAIN.conf` |
+| Portable backups / safety copies | `/var/backups/extended-name-reflector/` |
+| Installed systemd units | `/etc/systemd/system/` |
+| Activity / Echo logs | `/var/log/xlx.log`, `/var/log/xlxecho.log` |
+| Reflector XML / PID | `/var/log/xlxd.xml`, `/var/log/xlxd.pid` |
+| Log helper / rotation configuration | `/usr/local/bin/xlx_log.sh`, `/etc/logrotate.d/xlx_logrotate.conf` |
+| Installer/uninstaller logs | `log/` under the working directory used to launch the script |
+
+Services are `xlxd.service`, `xlx_log.service`, `update_XLX_db.service`, and `update_XLX_db.timer`, plus optional `ambed.service` and `xlxecho.service`.
+
+## HTTPS, service control, and troubleshooting
+
+```bash
+sudo systemctl status xlxd.service
+sudo systemctl restart xlxd.service
+sudo journalctl -u xlxd.service -n 100 --no-pager
+sudo tail -f /var/log/xlx.log
+```
+
+If certificate setup fails, check DNS and forwarding, then retry:
 
 ```bash
 sudo certbot --apache -d YOUR_DASHBOARD_DOMAIN
 ```
 
-The package still needs internet access for Debian/Ubuntu dependencies, RadioID/DMR database updates, and optional FTDI D2XX drivers and certificates. The proprietary FTDI binary driver is downloaded when AMBED is selected; it is not redistributed here.
+For an IP mismatch, inspect `ExecStart` in `/etc/systemd/system/xlxd.service`. The reflector address should be the VM's LAN address behind a router or its directly assigned public address on a VPS. After correcting the service file, run `sudo systemctl daemon-reload` and restart XLXD.
 
-## Source and validation
+Public-list troubleshooting applies only when call-home is enabled. Private reflectors are intentionally not advertised. Public reflector identity may involve `/xlxd/callinghome.php`; if present, preserve it separately before reinstalling. It is not included in the portable configuration backup.
 
-Upstream snapshots and licenses are preserved. See [bundled source provenance](docs/BUNDLED_SOURCES.md). The original installer remains in `baseline/installer.sh`. Changes are confined to this repository; PP5PK repositories and the running XLX480 are not modified.
+Internet access is needed for APT packages, RadioID/DMR database downloads, certificates, and optional FTDI D2XX drivers. The proprietary FTDI runtime is downloaded when AMBED is selected and is not bundled here.
 
-Validation includes XLXD compilation, isolated DMR-only and D-Star/DMR listener tests, AMBED source compilation, Echo Test compilation, Bash syntax checks, and CI PHP linting. AMBED hardware operation and a complete fresh-VM installation require testing on the target VM.
-
-See [identity audit](docs/IDENTITY_AUDIT.md) for why the display name remains separate from fixed-width protocol callsigns.
-
----
-
-# PP5PK installer documentation, annotated for this repository
-
-Adapted from [PP5PK/XLX_Installer README](https://github.com/PP5PK/XLX_Installer). Credits and upstream operating instructions follow. Notes marked **Our changes** and the project instructions above describe this fork; they take precedence over upstream behavior descriptions. GitHub install commands below target our repository.
-
-# 🌐 XLX Debian Installer - Documentation
-
-[![XLX Version](https://img.shields.io/badge/XLX-v2.5.3-blue)](https://img.shields.io/badge/XLX-v2.5.3-blue) [![Dashboard Version](https://img.shields.io/badge/Dashboard-3.2.1-blue)](https://img.shields.io/badge/Dashboard-3.2.1-blue) [![Debian](https://img.shields.io/badge/Debian-10%2B-red)](https://img.shields.io/badge/Debian-10%2B-red) [![License](https://img.shields.io/badge/license-MIT-green)](https://img.shields.io/badge/license-MIT-green) [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen)](https://img.shields.io/badge/maintained-yes-brightgreen)
-
-**Automated installation script for XLX multi-mode reflectors**
-Supporting D-Star • C4FM • DMR protocols
-
-[Features](#-features) • [Quick Start](#-quick-start) • [Installation](#-installation-process) • [Configuration](#️-firewall-configuration) • [User Manager](#-user-manager)
-
----
-
-## 📖 About the Project
-
-This project simplifies the installation of XLX reflectors with minimal user intervention. Developed by **Daniel K. ([PP5PK](https://www.qrz.com/db/PP5PK))**, this installer automates the setup of the XLX reflector created by [LX3JL](https://github.com/LX3JL/xlxd) and includes a customized dark theme dashboard. The goal is to make deploying an XLX reflector **easy, reliable, and maintainable**!
-
-**Upon completion, you'll have a fully functional public D-Star/YSF/DMR XLX reflector with monitoring dashboard!** 🎉
-
-### 🎯 Key Highlights
-
-- ✅ **No AMBE hardware needed** for C4FM and DMR interoperability (since early 2020)
-- ✅ **Complete systemd service integration** replacing legacy init.d scripts
-- ✅ **Dark theme dashboard** with improvements and modern UI
-- ✅ **Lightweight** - it ever runs on Raspberry Pi Zero!
-- ✅ **Optional Echo Test** (Parrot) service to audio tests
-- ✅ **Compatible** with Debian 10+ (13 recommended), Ubuntu, RaspiOS, Armbian, etc...
-- ✅ **Full uninstall support** with optional SSL certificate removal
-- ✅ **Built-in User Manager** for whitelist, dashboard access and RadioID database
-- ✅ **Residual installation detection** — automatically cleans up incomplete or failed installs before proceeding
-- ✅ **Safe cancellation** — type `X` at any prompt to abort without leaving the system in an inconsistent state
-
-> **Note:** D-Star integration with other modes still requires AMBE chips. For D-Star-only or YSF/DMR reflectors, no additional hardware is needed.
-
----
-
-## ✨ Features
-
-| Feature                    | Description                                            |
-| -------------------------- | ------------------------------------------------------ |
-| 🔄 **Multi-Protocol**       | Native support for D-Star, C4FM (YSF), and DMR         |
-| 🎨 **Custom Dashboard**     | Dark theme with enhanced monitoring capabilities       |
-| 🔊 **Echo Test**            | Optional Parrot service for audio testing              |
-| 🔒 **SSL Ready**            | Automated SSL certificate setup with Certbot           |
-| 📊 **Real-time Monitoring** | Live connection tracking and statistics                |
-| 🌍 **YSF Auto-link**        | Configurable automatic linking for YSF                 |
-| 🎯 **Auto-update**          | Automatic real-time users database setup               |
-| 👥 **User Manager**         | Terminal tool to manage users, whitelist and passwords |
-| 🧹 **Smart Cleanup**        | Detects and removes residual files from failed installs |
-
-### ✔ Dashboard Features
-
-The included dashboard is a dark-theme fork with major improvements:
-
-- Real-time multi-TX module detection with pulsing highlight animation and live TX timers
-- Live duration counter for connected stations, updating every second without page reload
-- Responsive layout for desktop and mobile
-- 30‑day activity history and module activity chart (via Chart.js, independent 60-second refresh)
-- SQLite operator database (call, name, city) displayed in Recent Activity and Connected Stations tabs
-- Filter-aware auto-refresh — pauses when a callsign or module filter is active
-- Browser tab badge showing connected station count and active TX callsign
-- Hidden tabs support and others via `config.inc.php`
-
-### ✔ Systemd Integration
-
-The installer provides native **systemd services**, replacing original XLXD `init.d` behavior:
-
-- `xlxd.service`
-- `xlx_log.service`
-- `update_XLX_db.service` (update timers)
-- `xlxecho.service` (if Echo Test is enabled)
-
-This brings better reliability, logging, restart behavior, and dependency control.
-
----
-
-## 📋 Requirements
-
-Before installation, ensure you have:
-
-- [x] Debian-based system or VPS with latest updates
-- [x] Stable internet connection with **fixed public IP**
-- [x] Firewall management capabilities
-- [x] **FQDN** for dashboard (e.g., `xlxbra.net`)
-- [x] Unique **3-digit XLX ID** (check availability [here](https://xlxbra.net/index.php?show=reflectors))
-
-### 🔍 Finding Available Reflector Suffixes
-
-Visit any active reflector dashboard to see which XLX suffixes are in use. Any unlisted suffix is available!
-
----
-
-## 📦 Installation process
-
-[![Install](https://cloud.dvbr.net/images/XLX_Install_Process.jpg)](https://cloud.dvbr.net/images/XLX_Install_Process.jpg)
-
-### Step 1: Configure Firewall Ports
-
-**Before running the installer**, ensure all required ports are open and forwarded (see [Firewall Configuration](#️-firewall-configuration)).
-
-### Step 2: Run Installation
-
-Execute the commands from the [Quick Start](#-quick-start) section above.
-
-> **Our changes:** The startup menu automatically lists discovered backups as numbered installation choices alongside fresh settings. Our final review uses numbers 1–16; extended name, protocol/port selection, AMBED, and call-home are additional choices. YSF questions are asked only when YSF is enabled.
-
-### Step 3: Original PP5PK Configuration Prompts
-
-The installer will request the following information:
-
-| #  | Prompt                     | Example               | Default   |
-| --- | -------------------------- | --------------------- | --------- |
-| 01 | 3-digit XLX reflector      | `300`, `US1`, `BRA`   | -         |
-| 02 | Dashboard FQDN             | `xlxbra.net`          | -         |
-| 03 | Sysop email address        | `xlxref@gmail.com`    | -         |
-| 04 | Sysop callsign             | `PP5PK`               | -         |
-| 05 | Reflector country          | `Germany`             | -         |
-| 06 | Time Zone                  | `Europe/Berlin`       | Detected  |
-| 07 | Comment for XLX list       | `XLX300 Reflector...` | -         |
-| 08 | Custom tab name            | `XLXBRA Dashboard...` | -         |
-| 09 | Custom footnote            | `Maintained by...`    | -         |
-| 10 | Install SSL?               | `Y/N`                 | Y         |
-| 11 | Install Echo Test?         | `Y/N`                 | Y         |
-| 12 | Number of modules          | `1-26`                | 5         |
-| 13 | YSF UDP port               | `1-65535`             | 42000     |
-| 14 | YSF Wires-X frequency (Hz) | `433125000`           | 433125000 |
-| 15 | Enable YSF auto-link?      | `Y/N`                 | Y         |
-| 16 | YSF auto-link module       | `A-Z`                 | C         |
-
-> **Tip:** At any prompt, type `X` and press **[ENTER]** to safely cancel the installation. Cancellation stops further installation steps; initial checks and an explicitly confirmed uninstall may already have changed the system.
-
-### Step 4: Completion ✅
-
-The installation proceeds automatically. Once complete, your reflector will be operational and ready to accept connections!
-
-### 🔍 Residual Installation Detection
-
-If the installer detects files from a previous incomplete or failed installation, it will automatically identify and remove them before proceeding. This ensures a clean environment without requiring manual intervention, even if a prior install did not complete successfully.
-
-If an existing **complete** installation is found, the installer will offer to launch the uninstaller directly, so you can perform a clean reinstallation without leaving the script.
-
----
-
-## 🚀 Quick Start
+## Full uninstall
 
 ```bash
-# Update system
-sudo apt update && sudo apt full-upgrade -y
-
-# Install prerequisites
-sudo apt install git -y
-
-# Clone repository
-cd /usr/src/
-sudo git clone https://github.com/EdHasley/Extended_Name_Reflector.git
-
-# Run installer
-cd Extended_Name_Reflector/
-sudo bash installer.sh
+cd /usr/src/Extended_Name_Reflector
+sudo bash templates/uninstaller.sh
 ```
 
----
+The full uninstaller asks for confirmation, removes reflector services/timers, XLXD and AMBED files, installed dashboard and source copies, project metadata/helpers, and listed logs. It also removes the domain's Apache configuration when domain cleanup is selected. The AF0WX installer checkout and portable backup folder are outside its removal list.
 
-## 🛡️ Firewall Configuration
+**SSL certificates:** The full uninstaller may ask whether to remove the domain's certificate. Choose **NO** to retain it for reuse. It does not uninstall the Certbot package or remove Cloudflared. Main manager option **8 → 2** removes only the XLXD core binary/service and does not perform this full cleanup.
 
-> **Our changes:** Forward only the enabled protocols using the ports selected in this installer. The following upstream table is a reference, not a requirement to open every listed port. AMBED should normally remain local.
+## AF0WX changes and source credits
 
-### Upstream Port Reference
+| Contribution | Credit |
+| --- | --- |
+| AF0WX installer customization, reflector manager, extended names, selectable protocols/ports, private call-home, portable backups and numbered backup installation | Ed Hasley, **AF0WX** |
+| Original installer foundation, dashboard and user/RadioID management | Daniel K., **PP5PK** — [XLX Installer](https://github.com/PP5PK/XLX_Installer), [Dashboard](https://github.com/PP5PK/XLX_Dark_Dashboard) |
+| XLX reflector software | Jean-Luc Deltombe, **LX3JL**, and Luc Engelmann, **LX1IQ** — [XLXD](https://github.com/LX3JL/xlxd) |
+| Original Debian installer idea | **N5AMD** — [installer](https://github.com/n5amd/xlxd-debian-installer) |
+| Echo Test | **Narspt** — [XLXEcho](https://github.com/narspt/XLXEcho) |
+| HTTPS certificates | [Certbot](https://certbot.eff.org/) |
 
-| Port        | Type | Description                    |
-| ----------- | ---- | ------------------------------ |
-| 22          | TCP  | SSH                            |
-| 80          | TCP  | HTTP                           |
-| 443         | TCP  | HTTPS                          |
-| 8080        | TCP  | RepNeT                         |
-| 20001-20005 | TCP  | DPlus protocol                 |
-| 40001       | TCP  | ICom G3                        |
-| 8880        | UDP  | DMR+ DMO mode                  |
-| 10001       | UDP  | JSON interface XLX Core        |
-| 10002       | UDP  | XLX interlink                  |
-| 10100       | UDP  | AMBE controller                |
-| 10101-10199 | UDP  | AMBE transcoding               |
-| 12345-12346 | UDP  | ICom Terminal presence/request |
-| 20001-20005 | UDP  | DPlus protocol                 |
-| 21110       | UDP  | Yaesu IMRS protocol            |
-| 30001       | UDP  | DExtra protocol                |
-| 30051       | UDP  | DCS protocol                   |
-| 40000       | UDP  | Terminal DV                    |
-| 42000       | UDP  | YSF protocol                   |
-| 62030       | UDP  | MMDVM protocol                 |
+Original source credits and component licenses remain in the bundled projects. See [source provenance](docs/BUNDLED_SOURCES.md), [identity audit](docs/IDENTITY_AUDIT.md), and `baseline/installer.sh` for the preserved original installer. Consult each component's license files; the bundled package contains multiple upstream components.
 
----
-
-## 📂 File Locations
-
-| Type                         | Location                                                                                                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Installation**             | `/xlxd/`                                                                                                                                                                                                     |
-| **Source Files & Folders**   | `/usr/src/xlxd/` `/usr/src/XLXEcho/` `/usr/src/XLX_Dark_Dashboard/` `/usr/src/XLX_Installer/` `/usr/local/bin/update_db.sh` `/usr/local/bin/xlx_log.sh`                                                     |
-| **Log Files**                | `/var/log/xlxd*` `/var/log/xlx.log` `/var/log/xlxecho.log` `/var/log/update_XLX_db.log`                                                                                                                     |
-| **Services**                 | `/etc/systemd/system/xlxd.service` `/etc/systemd/system/xlxecho.service` `/etc/systemd/system/xlx_log.service` `/etc/systemd/system/update_XLX_db.service` `/etc/systemd/system/update_XLX_db.timer`        |
-| **Dashboard**                | `/var/www/html/xlxd/`                                                                                                                                                                                        |
-| **Configuration**            | `/var/www/html/xlxd/pgs/config.inc.php` `/etc/logrotate.d/xlx_logrotate.conf` `/xlxd/callinghome.php` `/xlxd/xlxd.blacklist` `/xlxd/xlxd.whitelist` `/xlxd/xlxd.interlink` `/xlxd/xlxd.terminal`            |
-| **User Manager**             | `/xlxd/users_db/reflector_user_manager.sh`                                                                                                                                                                   |
-| **RadioID Database**         | `/xlxd/users_db/users_base.csv` `/xlxd/users_db/user.csv`                                                                                                                                                   |
-| **Dashboard Authentication** | `/var/www/restricted/.htpasswd`                                                                                                                                                                              |
-
----
-
-## 🔑 The callinghome.php File — Reflector Identity & Ownership
-
-After installation, the file `/xlxd/callinghome.php` is created automatically. This file is critical to the identity and ownership of your reflector and should be treated with care.
-
-### What it does
-
-`callinghome.php` contains a unique cryptographic hash that:
-
-- **Proves ownership** of your specific reflector ID (e.g., XLX300) to the global XLX network
-- **Prevents conflicts** — no other operator can register the same reflector ID while your hash is the valid one
-- **Controls dashboard visibility** — the green thumbs-up indicator on the public reflector list, confirming that your reflector is active and legitimate, depends on this file being valid and matching the one registered on the network
-
-### ⚠️ Critical: Back up this file before reinstalling
-
-If you need to reinstall your reflector, **back up `/xlxd/callinghome.php` before running the uninstaller**:
-
-```bash
-sudo cp /xlxd/callinghome.php ~/callinghome.php.bak
-```
-
-After reinstalling, replace the newly generated file with your backup:
-
-```bash
-sudo cp ~/callinghome.php.bak /xlxd/callinghome.php
-```
-
-This ensures your reflector is immediately recognized as the legitimate owner of its ID on the global network.
-
-### What happens if you don't back it up
-
-If the backup is lost and a new `callinghome.php` is generated after reinstallation:
-
-- **New reflectors** — will appear online immediately, as there is no prior hash registered for that ID
-- **Existing reflectors** — the new hash must be validated by the network, which takes approximately **3 days**. During this period, the reflector will still be functional and accept connections, but may not display the green active indicator on the public list until validation is complete
-
----
-
-## 🔧 Managing the Reflector
-
-### Service Control
-
-```bash
-# Start the reflector
-sudo systemctl start xlxd.service
-
-# Stop the reflector
-sudo systemctl stop xlxd.service
-
-# Restart the reflector
-sudo systemctl restart xlxd.service
-
-# Check status
-sudo systemctl status xlxd.service
-```
-
-### Real-time Monitoring
-
-```bash
-# Watch live logs
-sudo tail -f /var/log/xlx.log
-```
-
----
-
-> **Our changes:** Call-home defaults to OFF. Public-list troubleshooting below applies only when advertising is enabled.
-
-## 🔍 Troubleshooting: Reflector Not Appearing in the Public List
-
-After a successful installation, your reflector should appear on any XLX dashboard (e.g., [xlxbra.net](https://xlxbra.net)) within a few minutes. If it does not, the most common cause is an **IP address mismatch** in the service configuration.
-
-### Understanding the IP Configuration
-
-The file `/etc/systemd/system/xlxd.service` contains a line like:
-
-```
-ExecStart=/xlxd/xlxd XLX300 192.168.1.10 127.0.0.1
-```
-
-The **second argument** (the first IP address) is critical — it must be the IP that has **direct outbound internet access**. There are two scenarios:
-
-| Setup | IP to use | Example |
-|-------|-----------|---------|
-| **Server behind a LAN router** (ports forwarded to the server) | Local/internal IP | `192.168.1.10` |
-| **VPS or server with public IP assigned directly to the NIC** | Public IP | `203.0.113.45` |
-
-The installer attempts to detect the correct IP automatically. However, in some environments — particularly those with complex networking, multiple interfaces, or NAT — it may not detect this correctly.
-
-### How to Fix It
-
-**1. Check which IP is currently configured:**
-```bash
-grep ExecStart /etc/systemd/system/xlxd.service
-```
-
-**2. Identify the correct IP for your setup:**
-```bash
-# Your local/internal IP
-hostname -I | awk '{print $1}'
-
-# Your public IP (as seen from the internet)
-curl -s https://v4.ident.me
-```
-
-**3. Edit the service file with the correct IP:**
-```bash
-sudo nano /etc/systemd/system/xlxd.service
-```
-
-**4. Apply the change and restart:**
-```bash
-sudo systemctl daemon-reload
-sudo systemctl stop xlxd.service
-sudo systemctl start xlxd.service
-```
-
-**5. Verify the service is running:**
-```bash
-sudo systemctl status xlxd.service
-```
-
-After restarting, allow a few minutes for the reflector to register and appear on the public list.
-
----
-
-## 👥 User Manager
-
-The installer includes `reflector_user_manager.sh`, a unified terminal tool for all user administration tasks. Instead of running separate scripts, everything is available from a single two-level interactive menu.
-
-```bash
-sudo /xlxd/users_db/reflector_user_manager.sh
-```
-
-### Menu Structure
-
-```
-Main menu
-├── 1) Database (RadioID)
-│   ├── 1) Add / Edit record
-│   ├── 2) Delete record
-│   ├── 3) List records by Callsign
-│   ├── 4) Search records (filter)
-│   ├── 5) Create / Update SQL database
-│   └── X) Back
-└── 2) Access Control
-    ├── 1) Add user       (whitelist + dashboard)
-    ├── 2) Reset password (dashboard)
-    ├── 3) Remove user    (whitelist + dashboard)
-    ├── 4) Look up user   (whitelist + dashboard)
-    ├── 5) List pending   (password not yet changed)
-    ├── 6) List whitelist (all callsigns)
-    └── X) Back
-```
-
-### Key Capabilities
-
-| Feature                   | Description                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 📋 **RadioID Database**    | Add, edit, delete and search records in `users_base.csv`                                                      |
-| 🔍 **Filtered Search**     | Case-insensitive partial search by callsign, DMRID, name, city or country — with pagination (25 records/page) |
-| 🔑 **Password Management** | Generate and reset secure 12-character dashboard passwords                                                    |
-| 📡 **Whitelist Control**   | Add and remove callsigns from `xlxd.whitelist` with confirmation                                              |
-| 🗂️ **Whitelist Listing**  | Display all active whitelist entries in auto-sized columns                                                    |
-| ⏳ **Pending List**        | Track users who have not yet changed their initial password                                                   |
-| 🔄 **SQL Sync**            | Trigger `create_user_db.php` to rebuild the SQLite database from the CSV                                      |
-
-> For full documentation see [REFLECTOR_USER_MANAGER.md](https://github.com/PP5PK/XLX_Installer/blob/master/REFLECTOR_USER_MANAGER.md).
-
----
-
-## 🎯 Optional Steps
-
-### 📝 Register Your YSF Reflector
-
-To list your reflector on YSF hosts:
-
-1. Visit [dvref.com](https://dvref.com)
-2. Follow the registration instructions
-
-### 🔒 Manual SSL Setup
-
-If you skipped automatic SSL during installation:
-
-1. Visit the [Certbot website](https://certbot.eff.org)
-2. Follow the simple instructions
-3. Ensure TCP ports 80 and 443 are open and forwarded
-
----
-
-> **Our changes:** Our uninstaller preserves SSL/Certbot and Cloudflared, and portable backups survive removal. Check its displayed removal summary before proceeding.
-
-## 🧹 Uninstall (Upstream Reference)
-
-The uninstaller is located at `templates/uninstaller.sh` within the installer directory. It can be launched manually or directly from the installer if an existing installation is detected during a new install attempt.
-
-```bash
-cd /usr/src/Extended_Name_Reflector/templates
-sudo bash uninstaller.sh
-```
-
-This removes:
-
-- systemd services and timers
-- dashboard and web files
-- reflector core binaries
-- configuration files
-- Apache virtual host integration
-- cron jobs and timers
-- log files and directories
-- SSL certificate (optional — the uninstaller will ask)
-
-> **Note:** The uninstaller will offer to remove the SSL certificate issued for your dashboard domain. If you plan to reuse the same domain, you may choose to keep it.
-
-> **Tip:** Type `X` at any prompt during uninstallation to abort safely without making changes.
-
-> ⚠️ **Remember** to back up `/xlxd/callinghome.php` before uninstalling if you plan to reinstall. See the [callinghome.php section](#-the-callinghomephp-file--reflector-identity--ownership) for details.
-
----
-
-## 🤝 Credits & Related Projects
-
-| Project                     | Author                                                  | Description                        |
-| --------------------------- | ------------------------------------------------------- | ---------------------------------- |
-| **XLX Reflector**           | [LX3JL](https://github.com/LX3JL/xlxd)                  | Original XLX reflector software    |
-| **XLX Forum Home**          | [LX1IQ](https://xlxbbs.epf.lu)                          | Official XLX Forum / Support       |
-| **XLX Dark Dashboard**      | [PP5PK](https://github.com/PP5PK/XLX_Dark_Dashboard)    | Dark themed XLX dashboard          |
-| **Original Installer Idea** | [N5AMD](https://github.com/n5amd/xlxd-debian-installer) | Initial Debian installer concept   |
-| **YSF Registration**        | [KC1AWV](https://dvref.com)                             | YSF Reflector registration service |
-| **Echo Test Service**       | [Narspt](https://github.com/narspt/XLXEcho)             | XLX Echo Test implementation       |
-| **SSL Certification**       | [Certbot](https://certbot.eff.org/)                     | Free SSL/TLS certificates          |
-| **This Installer**          | [PP5PK](https://pp5pk.net)                              | Automated installation script      |
-
----
-
-## 📞 Support
-
-If you encounter issues or have questions:
-
-- 📧 Contact the maintainer: [PP5PK](https://t.me/Whrebe)
-- 🐛 Open an issue on GitHub
-- 💬 Join the amateur radio community discussions
-
----
-
-## 📄 License
-
-This project is open source and available for use by the amateur radio community.
-Released under the **The Unlicense** License. See [`LICENSE`](LICENSE) for details.
-
----
-
-## ⭐ Community Support
-
-**Made with ❤️ by the Amateur Radio Community**
-
-⭐ If you find this project useful, please consider starring it on GitHub!
-Contributions and pull requests are welcome.
+Report AF0WX installer issues in [this repository](https://github.com/EdHasley/Extended_Name_Reflector/issues). Validation includes backup/menu checks, Bash syntax, CI PHP linting and source build/listener checks. A complete VM installation and operation with AMBE hardware still require target-system testing.

@@ -1,7 +1,7 @@
 #!/bin/bash
-# A tool to install XLX, your own D-Star Reflector.
+# AF0WX XLX Reflector Installer — maintained by Ed Hasley, AF0WX.
 # For more information, please visit https://xlxbbs.epf.lu/
-# Created by Daniel K., PP5PK.
+# Based on the original installer by Daniel K., PP5PK.
 
 # Enable strict error handling
 # -e  : exit immediately on any command returning non-zero
@@ -467,7 +467,7 @@ resolve_timezone() {
 clear
 line_type3
 echo ""
-center_wrap_color $GREEN "XLX MULTIPROTOCOL AMATEUR RADIO REFLECTOR INSTALLER PROGRAM"
+center_wrap_color $GREEN "AF0WX XLX MULTIPROTOCOL REFLECTOR INSTALLER"
 echo ""
 center_wrap_color $GREEN "Next, you will be asked some questions. Answer with the requested information or, if applicable, to accept the suggested value, press [ENTER]"
 echo ""

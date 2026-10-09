@@ -1,5 +1,5 @@
 #!/bin/bash
-# Extended Name Reflector Manager
+# AF0WX Reflector Manager
 # Project-specific management layer for EdHasley/Extended_Name_Reflector.
 # PP5PK's original user/database manager remains available as option 1.
 set -u
@@ -358,7 +358,7 @@ need_root "$@"
 while true; do
   clear
   yellow "=============================================="
-  yellow "        EXTENDED NAME REFLECTOR MANAGER"
+  yellow "        AF0WX REFLECTOR MANAGER"
   yellow "=============================================="
   echo "1. User / RadioID management"
   echo "2. Enable or disable protocols"
