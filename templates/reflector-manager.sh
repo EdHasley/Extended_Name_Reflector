@@ -18,6 +18,8 @@ CONF="/etc/extended-name-reflector/reflector.conf"
 DASH_CFG="/var/www/html/xlxd/pgs/config.inc.php"
 CALLHOME="/xlxd/callinghome.php"
 USER_MANAGER="/xlxd/users_db/reflector_user_manager.sh"
+BACKUP_DIR="/var/backups/extended-name-reflector"
+ACCESS_DIR="/xlxd"
 
 need_root() { if [[ ${EUID:-$(id -u)} -ne 0 ]]; then exec sudo "$0" "$@"; fi; }
 pause(){ read -r -p "Press Enter to continue..." _; }
@@ -101,6 +103,7 @@ ports_menu(){
     [[ "$(get_define ENABLE_DEXTRA)" == 1 ]] && add_port DEXTRA_PORT "DExtra"
     [[ "$(get_define ENABLE_DPLUS)" == 1 ]] && add_port DPLUS_PORT "DPlus"
     [[ "$(get_define ENABLE_DCS)" == 1 ]] && add_port DCS_PORT "DCS"
+    add_port JSON_PORT "XLX Core / JSON"
     [[ "$(get_define ENABLE_XLX)" == 1 ]] && add_port XLX_PORT "XLX interlink"
     [[ "$(get_define ENABLE_DMRPLUS)" == 1 ]] && add_port DMRPLUS_PORT "DMRPlus"
     [[ "$(get_define ENABLE_DMRMMDVM)" == 1 ]] && add_port DMRMMDVM_PORT "DMR MMDVM"
@@ -251,6 +254,70 @@ header_menu(){
   pause
 }
 
+safety_copy(){
+  local f="$1" d="$BACKUP_DIR/safety"
+  mkdir -p "$d"
+  [[ -f "$f" ]] && cp -p "$f" "$d/$(basename "$f").$(date +%Y%m%d-%H%M%S).bak"
+}
+
+access_control_menu(){
+  local c a f
+  while true; do
+    clear; yellow "=== Access Control / XLXD Databases ==="
+    echo "Each edit creates a timestamped safety copy first."
+    echo "1 Whitelist"; echo "2 Blacklist"; echo "3 Interlink"; echo "4 Terminal"; echo "X Back"
+    read -r -p "> " c
+    [[ "${c^^}" == X ]] && return
+    case "$c" in
+      1) f="$ACCESS_DIR/xlxd.whitelist";; 2) f="$ACCESS_DIR/xlxd.blacklist";;
+      3) f="$ACCESS_DIR/xlxd.interlink";; 4) f="$ACCESS_DIR/xlxd.terminal";; *) continue;;
+    esac
+    [[ -f "$f" ]] || { echo "File not found: $f"; pause; continue; }
+    echo "Current file: $f"; echo "V View   E Edit   X Back"; read -r -p "> " a
+    case "${a^^}" in
+      V) less "$f";;
+      E) safety_copy "$f"; if command -v nano >/dev/null 2>&1; then nano "$f"; else "${EDITOR:-vi}" "$f"; fi; echo "Saved. Safety copy: $BACKUP_DIR/safety/"; pause;;
+    esac
+  done
+}
+
+backup_config(){
+  local stamp out tmp old_lan current_lan public_ip domain
+  stamp=$(date +%Y%m%d-%H%M%S); mkdir -p "$BACKUP_DIR"; tmp=$(mktemp -d)
+  mkdir -p "$tmp/etc" "$tmp/source" "$tmp/access"
+  [[ -f "$CONF" ]] && cp -p "$CONF" "$tmp/etc/reflector.conf"
+  [[ -f "$MAIN_H" ]] && cp -p "$MAIN_H" "$tmp/source/main.h"
+  for f in xlxd.whitelist xlxd.blacklist xlxd.interlink xlxd.terminal; do [[ -f "$ACCESS_DIR/$f" ]] && cp -p "$ACCESS_DIR/$f" "$tmp/access/$f"; done
+  current_lan=$(hostname -I 2>/dev/null | awk '{print $1}'); public_ip=$(curl -m 5 -s https://api4.ipify.org 2>/dev/null || true)
+  domain=$(sed -n 's/^DOMAIN="\(.*\)"/\1/p' "$CONF" 2>/dev/null | tail -1)
+  printf 'BACKUP_VERSION="1"\nLAN_IP="%s"\nPUBLIC_IP="%s"\nDOMAIN="%s"\n' "$current_lan" "$public_ip" "$domain" > "$tmp/network-reference.conf"
+  out="$BACKUP_DIR/reflector-backup-$stamp.tar.gz"; tar -C "$tmp" -czf "$out" .; rm -rf "$tmp"; chmod 600 "$out"
+  echo "Backup created: $out"; echo "This folder is outside /etc/extended-name-reflector and survives the project uninstaller."; pause
+}
+
+restore_config(){
+  local src tmp old_ip current_ip
+  mkdir -p "$BACKUP_DIR"; echo "Available backups:"
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name "reflector-backup-*.tar.gz" -printf "  %p\n" 2>/dev/null | sort -r
+  read -r -p "Backup file to restore (full path, Enter cancels): " src; [[ -n "$src" ]] || return
+  [[ -f "$src" ]] || { echo "Backup file not found."; pause; return; }; tar -tzf "$src" >/dev/null 2>&1 || { echo "Invalid backup archive."; pause; return; }
+  tmp=$(mktemp -d); tar -C "$tmp" -xzf "$src"
+  old_ip=$(sed -n 's/^LAN_IP="\(.*\)"/\1/p' "$tmp/network-reference.conf" 2>/dev/null | tail -1); current_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  echo "Previous VM LAN IP: ${old_ip:-unknown}"; echo "Current VM LAN IP:  ${current_ip:-unknown}"; echo "The restore will KEEP the current VM network configuration."
+  read -r -p "Continue restore? [y/N]: " ans; [[ "${ans^^}" == Y || "${ans^^}" == YES ]] || { rm -rf "$tmp"; return; }
+  mkdir -p "$BACKUP_DIR/pre-restore"; for f in xlxd.whitelist xlxd.blacklist xlxd.interlink xlxd.terminal; do [[ -f "$ACCESS_DIR/$f" ]] && cp -p "$ACCESS_DIR/$f" "$BACKUP_DIR/pre-restore/$f.$(date +%Y%m%d-%H%M%S).bak"; done
+  [[ -f "$CONF" ]] && cp -p "$CONF" "$BACKUP_DIR/pre-restore/reflector.conf.$(date +%Y%m%d-%H%M%S).bak"
+  [[ -f "$tmp/etc/reflector.conf" ]] && { mkdir -p "$(dirname "$CONF")"; cp -p "$tmp/etc/reflector.conf" "$CONF"; }
+  [[ -f "$tmp/source/main.h" ]] && cp -p "$tmp/source/main.h" "$MAIN_H"
+  for f in xlxd.whitelist xlxd.blacklist xlxd.interlink xlxd.terminal; do [[ -f "$tmp/access/$f" ]] && cp -p "$tmp/access/$f" "$ACCESS_DIR/$f"; done
+  rm -rf "$tmp"; dashboard_settings || true; echo "Restore complete. Current VM IP was not changed. Rebuild XLXD to apply compiled settings."; pause
+}
+
+backup_restore_menu(){
+  local c
+  while true; do clear; yellow "=== Backup / Restore Reflector Configuration ==="; echo "Backup folder: $BACKUP_DIR"; echo "1 Create portable backup"; echo "2 Restore portable backup"; echo "X Back"; read -r -p "> " c; case "$c" in 1) backup_config;; 2) restore_config;; [Xx]) return;; esac; done
+}
+
 maintenance_menu(){
   while true; do
     clear
@@ -293,7 +360,8 @@ while true; do
   yellow "=============================================="
   yellow "        EXTENDED NAME REFLECTOR MANAGER"
   yellow "=============================================="
-  echo "1. User / RadioID / whitelist management"
+  echo "1. User / RadioID management"
+  echo "A. Access control: whitelist / blacklist / interlink / terminal"
   echo "2. Enable or disable protocols"
   echo "3. Change protocol ports"
   echo "4. AMBE / transcoder settings"
@@ -302,11 +370,13 @@ while true; do
   echo "7. Rebuild XLXD and restart reflector"
   echo "8. XLXD uninstall / reinstall maintenance"
   echo "9. Show service / reflector status"
+  echo "B. Backup / restore reflector configuration"
   echo "X. Exit"
   read -r -p "> " choice
   case "$choice" in
     1) [[ -x "$USER_MANAGER" ]] && "$USER_MANAGER" || { echo "PP5PK user manager is missing."; pause; };;
     2) protocols;; 3) ports_menu;; 4) ambe_menu;; 5) dashboard_menu;;
-    6) callhome_menu;; 7) rebuild;; 8) maintenance_menu;; 9) status_menu;; [Xx]) exit 0;;
+    6) callhome_menu;; 7) rebuild;; 8) maintenance_menu;; 9) status_menu;;
+    [Aa]) access_control_menu;; [Bb]) backup_restore_menu;; [Xx]) exit 0;;
   esac
 done
